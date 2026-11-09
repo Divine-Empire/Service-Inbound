@@ -1,0 +1,70 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Divine design tokens (shared with Engineer-Dashboard / Lead-To-Order / OTP_Supabase).
+ * Brand: gear blue #2274B8 (primary) + lime #96CE10 (accent only, never as text on white).
+ * Semantic status colours have one meaning app-wide and are always paired with text or an icon:
+ * success = done/positive, warning = pending, destructive = rejected/overdue, info = neutral.
+ */
+:root {
+  --background: 208 36% 96%;
+  --foreground: 222 47% 11%;
+  --card: 0 0% 100%;
+  --card-foreground: 222 47% 11%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 222 47% 11%;
+  --primary: 207 69% 43%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 207 40% 95%;
+  --secondary-foreground: 207 69% 26%;
+  --muted: 207 30% 95%;
+  --muted-foreground: 215 16% 40%;
+  --accent: 207 70% 93%;
+  --accent-foreground: 207 69% 26%;
+  --success: 84 75% 22%;
+  --success-foreground: 0 0% 100%;
+  --warning: 38 92% 50%;
+  --warning-foreground: 26 83% 14%;
+  --destructive: 0 72% 42%;
+  --destructive-foreground: 0 0% 100%;
+  --info: 207 69% 38%;
+  --info-foreground: 0 0% 100%;
+  --brand-lime: 78 86% 43%;
+  --border: 208 28% 87%;
+  --input: 208 24% 78%;
+  --ring: 207 69% 43%;
+  --radius: 0.5rem;
+}
+
+@layer base {
+  /* quiet token colour for a bare `border` */
+  *, ::before, ::after, ::backdrop { border-color: hsl(var(--border)); }
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    font-size: 14px;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+  /* visible keyboard focus for anything interactive without a ring of its own */
+  :where(a, button, [role="button"], summary, [tabindex]):focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
+}
+
+/* For WebKit browsers (Chrome, Safari) */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* For IE, Edge and Firefox */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
