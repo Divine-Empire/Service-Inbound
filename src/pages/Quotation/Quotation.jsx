@@ -61,14 +61,22 @@ export default function Quotation() {
 
       if (quotationError) throw quotationError;
 
+      // Tickets whose order is already received in Follow-Up have moved past Quotation.
+      const { data: orderRows, error: orderError } = await supabase
+        .from("inbound_follow_up")
+        .select("ticket_uuid")
+        .eq("stage", "Order Received")
+        .in("ticket_uuid", ticketUuids);
+      if (orderError) throw orderError;
+      const orderReceived = new Set((orderRows || []).map((r) => r.ticket_uuid));
+
       const quotationByTicket = new Map(
         (quotationRows || []).map((q) => [q.ticket_uuid, q])
       );
 
       // Pending and History are two independent views over the same gated set, not a partition:
-      // pending = every gated ticket (revising a quotation never removes it); history = the subset
-      // that's been quoted at least once. (There is no Follow-Up stage on inbound tickets yet, so
-      // nothing closes a ticket out of Pending.)
+      // pending = every gated ticket (revising a quotation never removes it) until its order is received
+      // in Follow-Up; history = the subset that's been quoted at least once.
       const pending = [];
       const history = [];
 
@@ -102,7 +110,7 @@ export default function Quotation() {
           delayMinutes: q?.delay_minutes,
         };
 
-        pending.push(base);
+        if (!orderReceived.has(t.uuid)) pending.push(base);
         if (q) history.push(base);
       });
 

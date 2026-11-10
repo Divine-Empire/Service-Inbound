@@ -8,6 +8,7 @@ import { useToast } from "../../hooks/use-toast";
 import useAuth from "../../hooks/useAuth";
 import { supabase } from "../../lib/supabase/client";
 import { computeStagePlanned } from "../../lib/supabase/stagePlanning";
+import { enquiryTypeText } from "../../lib/enquiryType";
 
 // CRM Verification (Service-Inbound) — the stage after Follow-Up "Order Received".
 //   Pending: inbound_follow_up Order Received row with crm_verification_planned set and no
@@ -55,20 +56,25 @@ const COLUMNS = [
       data-testid={`checkbox-crm-${r.ticketId}`}
     />
   ) },
+  { key: "date", label: "Date", defaultVisible: true, strong: true, text: (r) => formatDate(r.timeStemp) },
   { key: "ticketId", label: "Ticket-ID", defaultVisible: true, strong: true, text: (r) => r.ticketId },
-  { key: "clientName", label: "Client Name", defaultVisible: true, text: (r) => r.clientName },
   { key: "companyName", label: "Company Name", defaultVisible: true, wrap: true, width: 180, text: (r) => r.companyName },
+  { key: "clientName", label: "Client Name", defaultVisible: true, text: (r) => r.clientName },
   { key: "phoneNumber", label: "Phone Number", defaultVisible: true, text: (r) => r.phoneNumber },
-  { key: "machineName", label: "Machine Name", defaultVisible: true, wrap: true, width: 160, text: (r) => r.machineName },
   { key: "quotationNo", label: "Quotation No.", defaultVisible: true, text: (r) => r.quotationNo },
-  { key: "paymentMode", label: "Payment Mode", defaultVisible: true, text: (r) => r.paymentMode },
+  { key: "quotationCopy", label: "Quotation Copy", defaultVisible: true, cell: (r) => fileLink(r.quotationPdfLink) },
+  { key: "enquiryType", label: "Enquiry Type", defaultVisible: true, wrap: true, width: 180, text: (r) => r.enquiryType },
+  { key: "enquiryReceiverName", label: "Enquiry Receiver Name", defaultVisible: true, text: (r) => r.enquiryReceiverName },
+  { key: "gstNo", label: "GST No.", defaultVisible: true, text: (r) => r.gstNo },
+  { key: "machineName", label: "Machine Name", defaultVisible: false, wrap: true, width: 160, text: (r) => r.machineName },
+  { key: "paymentMode", label: "Payment Mode", defaultVisible: false, text: (r) => r.paymentMode },
   { key: "clientApproval", label: "Client Approval", defaultVisible: false, cell: (r) => fileLink(r.clientApproval) },
   { key: "seniorApproval", label: "Senior Approval", defaultVisible: false, cell: (r) => fileLink(r.seniorApproval) },
   { key: "advancePayment", label: "Advance Payment", defaultVisible: false, cell: (r) => fileLink(r.advancePayment) },
-  { key: "planned", label: "Planned", defaultVisible: true, tabs: ["pending"], text: (r) => formatDateTime(r.planned) },
-  { key: "verifiedBy", label: "Verified By", defaultVisible: true, tabs: ["history"], text: (r) => r.verifiedBy },
-  { key: "verifiedAt", label: "Verified On", defaultVisible: true, tabs: ["history"], text: (r) => formatDateTime(r.verifiedAt) },
-  { key: "invoicePlanned", label: "Invoice Planned", defaultVisible: true, tabs: ["history"], cell: (r) =>
+  { key: "planned", label: "Planned", defaultVisible: false, tabs: ["pending"], text: (r) => formatDateTime(r.planned) },
+  { key: "verifiedBy", label: "Verified By", defaultVisible: false, tabs: ["history"], text: (r) => r.verifiedBy },
+  { key: "verifiedAt", label: "Verified On", defaultVisible: false, tabs: ["history"], text: (r) => formatDateTime(r.verifiedAt) },
+  { key: "invoicePlanned", label: "Invoice Planned", defaultVisible: false, tabs: ["history"], cell: (r) =>
     r.invoicePlanned ? formatDateTime(r.invoicePlanned) : <StatusBadge tone="warning">No invoice (FOC)</StatusBadge> },
 ];
 
@@ -111,10 +117,10 @@ export default function CrmVerification() {
       ] = await Promise.all([
         supabase
           .from("inbound_tickets")
-          .select("ticket_id, uuid, client_name, company_name, phone_number, machine_name")
+          .select("ticket_id, uuid, created_at, client_name, company_name, phone_number, machine_name, enquiry_type, enquiry_receiver_name, gst_no")
           .in("uuid", ticketUuids),
         supabase.from("inbound_crm_verification").select("*").in("ticket_uuid", ticketUuids),
-        supabase.from("inbound_quotations").select("ticket_uuid, quotation_no").in("ticket_uuid", ticketUuids),
+        supabase.from("inbound_quotations").select("ticket_uuid, quotation_no, quotation_pdf_link").in("ticket_uuid", ticketUuids),
       ]);
 
       if (ticketsError) throw ticketsError;
@@ -123,7 +129,7 @@ export default function CrmVerification() {
 
       const ticketByUuid = new Map((ticketsData || []).map((t) => [t.uuid, t]));
       const crmByUuid = new Map((crmRows || []).map((c) => [c.ticket_uuid, c]));
-      const quotationByUuid = new Map((quotationRows || []).map((q) => [q.ticket_uuid, q.quotation_no]));
+      const quotationByUuid = new Map((quotationRows || []).map((q) => [q.ticket_uuid, q]));
 
       const pending = [];
       const history = [];
@@ -137,7 +143,12 @@ export default function CrmVerification() {
           companyName: t.company_name || "",
           phoneNumber: t.phone_number || "",
           machineName: t.machine_name || "",
-          quotationNo: quotationByUuid.get(o.ticket_uuid) || "",
+          timeStemp: t.created_at || "",
+          enquiryType: enquiryTypeText(t.enquiry_type),
+          enquiryReceiverName: t.enquiry_receiver_name || "",
+          gstNo: t.gst_no || "",
+          quotationNo: quotationByUuid.get(o.ticket_uuid)?.quotation_no || "",
+          quotationPdfLink: quotationByUuid.get(o.ticket_uuid)?.quotation_pdf_link || "",
           clientApproval: o.client_attachment_url || "",
           seniorApproval: o.senior_approval || "",
           advancePayment: o.advance_payment_attachment || "",

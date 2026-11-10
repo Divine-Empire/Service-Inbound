@@ -16,6 +16,7 @@ import { ClipboardList, Loader2Icon } from "lucide-react";
 import { useToast } from "../../hooks/use-toast";
 import { supabase } from "../../lib/supabase/client";
 import { computeStagePlanned } from "../../lib/supabase/stagePlanning";
+import { fetchItemNameSample, searchItemNames } from "../../lib/supabase/items";
 import { MultiSelect } from "../../components/ui/multi-select";
 import { enquiryTypeList } from "../../lib/enquiryType";
 
@@ -73,9 +74,39 @@ export default function EnquiryFormModal({ ticket, masterData, companyDetails, o
   const [newFormSelectedMachines, setNewFormSelectedMachines] = useState(() => splitList(ticket?.machineName));
   const [showMachineDropdown, setShowMachineDropdown] = useState(false);
   const [machineSearchQuery, setMachineSearchQuery] = useState("");
+  // Machine Name options come from the item catalog (lto_items): a spread sample first, then a
+  // debounced server-side search while typing. Only the latest search may update the list.
+  const [machineOptions, setMachineOptions] = useState([]);
+  const [machineSample, setMachineSample] = useState([]);
+  const [machineLoading, setMachineLoading] = useState(false);
+  const [machineError, setMachineError] = useState(false);
   // GST fields are read-only only while they hold a value auto-filled from the client master;
   // if the master has no GST No./Address for the company, they stay editable (GST Address is required).
   const [gstLocked, setGstLocked] = useState({ gstNo: false, gstAddress: false });
+
+  useEffect(() => {
+    let cancelled = false;
+    setMachineLoading(true);
+    fetchItemNameSample()
+      .then((names) => { if (!cancelled) { setMachineSample(names); setMachineOptions(names); } })
+      .catch(() => { if (!cancelled) setMachineError(true); })
+      .finally(() => { if (!cancelled) setMachineLoading(false); });
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    const term = machineSearchQuery.trim();
+    if (!term) { setMachineOptions(machineSample); setMachineError(false); return undefined; }
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      setMachineLoading(true);
+      searchItemNames(term)
+        .then((names) => { if (!cancelled) { setMachineOptions(names); setMachineError(false); } })
+        .catch(() => { if (!cancelled) setMachineError(true); })
+        .finally(() => { if (!cancelled) setMachineLoading(false); });
+    }, 500);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [machineSearchQuery, machineSample]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -511,33 +542,26 @@ export default function EnquiryFormModal({ ticket, masterData, companyDetails, o
                         />
                       </div>
                       <div className="mt-1">
-                        {[...new Set(masterData[0]?.["Machine Name"] || [])]
-                          .filter(Boolean)
-                          .filter(option =>
-                            option.toLowerCase().includes(machineSearchQuery.toLowerCase())
-                          )
-                          .map((option) => (
-                            <button
-                              key={option}
-                              type="button"
-                              disabled={newFormSelectedMachines.includes(option)}
-                              onClick={() => {
-                                if (!newFormSelectedMachines.includes(option)) {
-                                  setNewFormSelectedMachines(prev => [...prev, option]);
-                                }
-                                setMachineSearchQuery("");
-                                setShowMachineDropdown(false);
-                              }}
-                              className="flex w-full items-center rounded-sm px-2 py-1.5 text-sm hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed text-left"
-                            >
-                              {option}
-                            </button>
-                          ))}
-                        {[...new Set(masterData[0]?.["Machine Name"] || [])]
-                          .filter(Boolean)
-                          .filter(option =>
-                            option.toLowerCase().includes(machineSearchQuery.toLowerCase())
-                          ).length === 0 && (
+                        {machineOptions.map((option) => (
+                          <button
+                            key={option}
+                            type="button"
+                            disabled={newFormSelectedMachines.includes(option)}
+                            onClick={() => {
+                              if (!newFormSelectedMachines.includes(option)) {
+                                setNewFormSelectedMachines(prev => [...prev, option]);
+                              }
+                              setMachineSearchQuery("");
+                              setShowMachineDropdown(false);
+                            }}
+                            className="flex w-full items-center rounded-sm px-2 py-1.5 text-sm hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed text-left"
+                          >
+                            {option}
+                          </button>
+                        ))}
+                        {machineLoading && <p className="text-xs text-gray-500 text-center py-2">Searching...</p>}
+                        {!machineLoading && machineError && <p className="text-xs text-red-600 text-center py-2">Could not load machines</p>}
+                        {!machineLoading && !machineError && machineOptions.length === 0 && (
                           <p className="text-xs text-gray-500 text-center py-2">No machine found</p>
                         )}
                       </div>

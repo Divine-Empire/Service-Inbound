@@ -11,17 +11,18 @@ import {
 } from "../../components/ui/select";
 import { Modal } from "../../components/ui/modal";
 import { useToast } from "../../hooks/use-toast";
-import { LoaderIcon, Loader2Icon } from "lucide-react";
+import { Loader2Icon } from "lucide-react";
 import { supabase } from "../../lib/supabase/client";
-import { needsAdvanceAttachment } from "./followUpHelpers";
+import { needsAdvanceAttachment, uploadFollowUpFile } from "./followUpHelpers";
 
 // History tab Edit: re-upload Client Approval and, for Order Received rows, Acceptance Via /
 // Advance Payment / Senior Approval on one inbound_follow_up row. Render it only while a row is selected.
 export default function EditHistoryModal({ row, masterData, updatedByName, onClose, onSaved }) {
   const editingHistoryRow = row;
   const { toast } = useToast();
-  const [editAttachmentUrl, setEditAttachmentUrl] = useState(row["client-attachment"] || "");
-  const [isUploadingEditAttachment, setIsUploadingEditAttachment] = useState(false);
+  const [editAttachmentUrl] = useState(row["client-attachment"] || "");
+  // Files are only picked here and uploaded on Save, so closing the modal never leaves files in storage.
+  const [pickedFiles, setPickedFiles] = useState({});
   const [isSavingEditAttachment, setIsSavingEditAttachment] = useState(false);
   // Order Received rows: Acceptance Via / Advance Payment / Senior Approval are editable from
   // History too (moved here from the Order Received page).
@@ -30,71 +31,15 @@ export default function EditHistoryModal({ row, masterData, updatedByName, onClo
     advancePaymentAttachmentUrl: row.advance_payment_attachment || "",
     seniorApprovalUrl: row.senior_approval || "",
   });
-  const [isUploadingEditOrderFile, setIsUploadingEditOrderFile] = useState(false);
-
-  const handleEditOrderFileChange = (field) => async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    setIsUploadingEditOrderFile(true);
-    try {
-      const path = `follow_up/${editingHistoryRow?.ticketId || editingHistoryRow?.ticket_id}_${Date.now()}_${file.name}`;
-      const { error: uploadError } = await supabase.storage
-        .from("inbound_enquiry")
-        .upload(path, file, { contentType: file.type });
-      if (uploadError) throw uploadError;
-      const { data } = supabase.storage.from("inbound_enquiry").getPublicUrl(path);
-      setEditOrderFields((prev) => ({ ...prev, [field]: data.publicUrl }));
-      toast({ title: "Success", description: "File uploaded successfully" });
-    } catch (error) {
-      console.error("Error uploading file:", error);
-      e.target.value = null;
-      toast({
-        title: "Error",
-        description: error.message || "Failed to upload file",
-        variant: "destructive",
-      });
-    } finally {
-      setIsUploadingEditOrderFile(false);
-    }
+  const handleFilePick = (field) => (e) => {
+    const file = e.target.files?.[0] || null;
+    setPickedFiles((prev) => ({ ...prev, [field]: file }));
   };
 
-  const handleEditAttachmentFileChange = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    setIsUploadingEditAttachment(true);
-    try {
-      // Reuses the same Supabase storage bucket/path pattern as
-      // uploadImageToDrive (the Pending tab's Follow-Up form upload), but
-      // keyed off the History row's own ticket_id rather than selectedTicket.
-      const path = `follow_up/${editingHistoryRow?.ticketId || editingHistoryRow?.ticket_id}_${Date.now()}_${file.name}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from("inbound_enquiry")
-        .upload(path, file, { contentType: file.type });
-
-      if (uploadError) throw uploadError;
-
-      const { data } = supabase.storage.from("inbound_enquiry").getPublicUrl(path);
-
-      setEditAttachmentUrl(data.publicUrl);
-      toast({
-        title: "Success",
-        description: "Client Approval uploaded successfully",
-      });
-    } catch (error) {
-      console.error("Error uploading edit attachment:", error);
-      e.target.value = null;
-      toast({
-        title: "Error",
-        description: error.message || "Failed to upload image",
-        variant: "destructive",
-      });
-    } finally {
-      setIsUploadingEditAttachment(false);
-    }
-  };
+  const pickedName = (field) =>
+    pickedFiles[field] ? (
+      <p className="mt-1 text-sm text-slate-600 truncate">Selected: {pickedFiles[field].name} (uploads on Save)</p>
+    ) : null;
 
   const handleSaveEditHistoryAttachment = async () => {
     if (!editingHistoryRow?.id) {
@@ -110,10 +55,16 @@ export default function EditHistoryModal({ row, masterData, updatedByName, onClo
     try {
       const isOrderRow = editingHistoryRow.stage === "Order Received" && !!editingHistoryRow.payment_mode;
       const isFOCRow = editingHistoryRow.payment_mode === "FOC";
+      const ticketKey = editingHistoryRow?.ticketId || editingHistoryRow?.ticket_id;
+      const urlFor = async (field, current) =>
+        pickedFiles[field] ? uploadFollowUpFile(ticketKey, pickedFiles[field]) : current;
+      const clientUrl = await urlFor("client", editAttachmentUrl);
+      const advanceUrl = await urlFor("advancePaymentAttachmentUrl", editOrderFields.advancePaymentAttachmentUrl);
+      const seniorUrl = await urlFor("seniorApprovalUrl", editOrderFields.seniorApprovalUrl);
       const { error } = await supabase
         .from("inbound_follow_up")
         .update({
-          client_attachment_url: editAttachmentUrl || null,
+          client_attachment_url: clientUrl || null,
           last_updated_by: updatedByName,
           ...(isOrderRow
             ? {
@@ -122,9 +73,9 @@ export default function EditHistoryModal({ row, masterData, updatedByName, onClo
                   ? {}
                   : {
                       ...(needsAdvanceAttachment(editingHistoryRow.payment_mode)
-                        ? { advance_payment_attachment: editOrderFields.advancePaymentAttachmentUrl || null }
+                        ? { advance_payment_attachment: advanceUrl || null }
                         : {}),
-                      senior_approval: editOrderFields.seniorApprovalUrl || null,
+                      senior_approval: seniorUrl || null,
                     }),
               }
             : {}),
@@ -163,19 +114,14 @@ export default function EditHistoryModal({ row, masterData, updatedByName, onClo
           <div>
             <Label className="flex items-center gap-2">
               Client Approval
-              {isUploadingEditAttachment && (
-                <LoaderIcon className="animate-spin w-4 h-4 text-blue-600" />
-              )}
             </Label>
             <Input
               type="file"
-              disabled={isUploadingEditAttachment || isSavingEditAttachment}
-              onChange={handleEditAttachmentFileChange}
+              disabled={isSavingEditAttachment}
+              onChange={handleFilePick("client")}
               data-testid="edit-history-approval-attachment"
             />
-            {isUploadingEditAttachment && (
-              <p className="text-xs text-blue-600 mt-1">Uploading file, please wait...</p>
-            )}
+            {pickedName("client")}
             {editAttachmentUrl && (
               <p className="mt-1 text-sm text-green-600">
                 Currently uploaded:{" "}
@@ -225,9 +171,10 @@ export default function EditHistoryModal({ row, masterData, updatedByName, onClo
                     <Label className="flex items-center gap-2">{label}</Label>
                     <Input
                       type="file"
-                      disabled={isUploadingEditOrderFile || isSavingEditAttachment}
-                      onChange={handleEditOrderFileChange(field)}
+                      disabled={isSavingEditAttachment}
+                      onChange={handleFilePick(field)}
                     />
+                    {pickedName(field)}
                     {editOrderFields[field] && (
                       <p className="mt-1 text-sm text-green-600">
                         Currently uploaded:{" "}
@@ -243,9 +190,6 @@ export default function EditHistoryModal({ row, masterData, updatedByName, onClo
                     )}
                   </div>
                 ))}
-              {isUploadingEditOrderFile && (
-                <p className="text-xs text-blue-600">Uploading file, please wait...</p>
-              )}
             </>
           )}
 
@@ -253,7 +197,7 @@ export default function EditHistoryModal({ row, masterData, updatedByName, onClo
             <Button
               type="button"
               onClick={handleSaveEditHistoryAttachment}
-              disabled={isUploadingEditAttachment || isSavingEditAttachment || isUploadingEditOrderFile}
+              disabled={isSavingEditAttachment}
               data-testid="button-save-edit-history-attachment"
               className="px-6 py-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-lg transition-all duration-300 shadow-lg hover:shadow-xl disabled:opacity-70"
             >

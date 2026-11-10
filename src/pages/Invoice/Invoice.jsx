@@ -111,6 +111,7 @@ export default function Invoice() {
           companyName: t.company_name || "",
           siteAddress: t.site_address || "",
           gstNo: t.gst_no || "",
+          enquiryReceiverName: t.enquiry_receiver_name || "",
           gstAddress: t.gst_address || "",
           // enquiryTypes (array) decides calibration_planned at submit time - see stagePlanning.js.
           enquiryType: enquiryTypeText(t.enquiry_type),

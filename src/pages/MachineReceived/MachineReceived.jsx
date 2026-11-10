@@ -28,28 +28,32 @@ const COLUMNS = [
   ) },
   { key: "date", label: "Date", defaultVisible: true, strong: true, text: (r) => formatDate(r.timeStemp) },
   { key: "ticketId", label: "Ticket-ID", defaultVisible: true, strong: true, text: (r) => r.ticketId },
-  { key: "sourceOfEnquiry", label: "Source of enquiry", defaultVisible: false, text: (r) => r.sourceOfEnquiry },
-  { key: "callType", label: "Call type", defaultVisible: false, text: (r) => r.callType },
-  { key: "enquiryReceiverName", label: "Enquiry Receiver Name", defaultVisible: false, text: (r) => r.enquiryReceiverName },
-  { key: "enquiryType", label: "Enquiry Type", defaultVisible: true, text: (r) => r.enquiryType },
-  { key: "clientType", label: "Client Type", defaultVisible: false, text: (r) => r.clientType },
   { key: "companyName", label: "Company Name", defaultVisible: true, wrap: true, width: 200, text: (r) => r.companyName },
   { key: "clientName", label: "Client Name", defaultVisible: true, text: (r) => r.clientName },
-  { key: "phoneNumber", label: "Phone Number", defaultVisible: false, text: (r) => r.phoneNumber },
+  { key: "phoneNumber", label: "Phone Number", defaultVisible: true, text: (r) => r.phoneNumber },
+  { key: "enquiryType", label: "Enquiry Type", defaultVisible: true, wrap: true, width: 180, text: (r) => r.enquiryType },
+  { key: "enquiryReceiverName", label: "Enquiry Receiver Name", defaultVisible: true, text: (r) => r.enquiryReceiverName },
+  { key: "gstNo", label: "GST No.", defaultVisible: true, text: (r) => r.gstNo },
+  { key: "sourceOfEnquiry", label: "Source of enquiry", defaultVisible: false, text: (r) => r.sourceOfEnquiry },
+  { key: "callType", label: "Call type", defaultVisible: false, text: (r) => r.callType },
+  { key: "clientType", label: "Client Type", defaultVisible: false, text: (r) => r.clientType },
   { key: "siteAddress", label: "Site Address", defaultVisible: false, wrap: true, width: 200, text: (r) => r.siteAddress },
-  { key: "gstNo", label: "GST No.", defaultVisible: false, text: (r) => r.gstNo },
-  { key: "machineName", label: "Machine Name", defaultVisible: true, wrap: true, width: 160, text: (r) => r.machineName },
+  { key: "machineName", label: "Machine Name", defaultVisible: false, wrap: true, width: 160, text: (r) => r.machineName },
   { key: "mentionIssue", label: "Mention Issue", defaultVisible: false, wrap: true, width: 200, text: (r) => r.mentionIssue },
-  { key: "machineReceived", label: "Machine Received", defaultVisible: true, tabs: ["history", "hold"], cell: (r) => (
+  { key: "machineReceived", label: "Machine Received", defaultVisible: false, tabs: ["history", "hold"], cell: (r) => (
     <StatusBadge tone={r.machineReceived === "yes" ? "success" : r.machineReceived === "quotation_shared" ? "warning" : "danger"}>{RECEIVED_LABEL[r.machineReceived] || "No"}</StatusBadge>
   ) },
-  { key: "warrantyCheck", label: "Warranty Check", defaultVisible: true, tabs: ["history", "hold"], cell: (r) => (
+  { key: "warrantyCheck", label: "Warranty Check", defaultVisible: false, tabs: ["history", "hold"], cell: (r) => (
     <StatusBadge tone={r.warrantyCheck === "yes" ? "success" : "danger"}>{r.warrantyCheck === "yes" ? "Yes" : "No"}</StatusBadge>
   ) },
-  { key: "srnNumbers", label: "SRN Numbers", defaultVisible: true, tabs: ["history", "hold"], wrap: true, width: 200, text: (r) => (r.srnNumbers || []).join(", ") || "N/A" },
-  { key: "remarks", label: "Remarks", defaultVisible: true, tabs: ["history", "hold"], wrap: true, width: 200, text: (r) => r.remarks || "N/A" },
-  { key: "lastUpdatedBy", label: "Last Updated By", defaultVisible: true, tabs: ["history", "hold"], text: (r) => r.lastUpdatedBy || "N/A" },
-  { key: "receivedAt", label: "Processed At", defaultVisible: true, tabs: ["history", "hold"], text: (r) => formatDate(r.receivedAt) },
+  { key: "srnNumbers", label: "SRN Numbers", defaultVisible: false, tabs: ["history", "hold"], wrap: true, width: 200, text: (r) => (r.srnNumbers || []).join(", ") || "N/A" },
+  { key: "challanCopy", label: "Challan Copy", defaultVisible: false, tabs: ["history", "hold"], cell: (r) =>
+    r.challanCopyUrl ? (
+      <a href={r.challanCopyUrl} target="_blank" rel="noopener noreferrer" className="text-xs font-semibold text-primary hover:underline">View</a>
+    ) : "N/A" },
+  { key: "remarks", label: "Remarks", defaultVisible: false, tabs: ["history", "hold"], wrap: true, width: 200, text: (r) => r.remarks || "N/A" },
+  { key: "lastUpdatedBy", label: "Last Updated By", defaultVisible: false, tabs: ["history", "hold"], text: (r) => r.lastUpdatedBy || "N/A" },
+  { key: "receivedAt", label: "Processed At", defaultVisible: false, tabs: ["history", "hold"], text: (r) => formatDate(r.receivedAt) },
 ];
 
 const RECEIVED_LABEL = { yes: "Yes", no: "No", quotation_shared: "Quotation Shared" };
@@ -61,12 +65,14 @@ const ACTIVE_FIELD = "bg-white border-slate-400 text-slate-900 shadow-sm";
 
 const MAX_SRN = 15;
 const EMPTY_FORM = { machineReceived: "", warrantyCheck: "", remarks: "", srn: [""] };
+const CHALLAN_ACCEPT = ".pdf,.jpg,.jpeg,.png,.webp";
 const cleanSrn = (list) => list.map((v) => v.trim()).filter(Boolean);
 
 export default function MachineReceived() {
   const [showModal, setShowModal] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [formData, setFormData] = useState(EMPTY_FORM);
+  const [challanFile, setChallanFile] = useState(null);
 
   const [pendingData, setPendingData] = useState([]);
   const [historyData, setHistoryData] = useState([]);
@@ -126,6 +132,7 @@ export default function MachineReceived() {
             warrantyCheck: m.warranty_check || "",
             remarks: m.remarks || "",
             srnNumbers: m.srn_numbers || [],
+            challanCopyUrl: m.challan_copy_url || "",
             lastUpdatedBy: m.last_updated_by || "",
             receivedAt: m.created_at || "",
             isHold: m.machine_received === "quotation_shared",
@@ -161,7 +168,15 @@ export default function MachineReceived() {
         ? { machineReceived: "", warrantyCheck: ticket.warrantyCheck || "", remarks: ticket.remarks || "", srn: ticket.srnNumbers?.length ? [...ticket.srnNumbers] : [""] }
         : EMPTY_FORM
     );
+    setChallanFile(null);
     setShowModal(true);
+  };
+
+  const uploadChallan = async (ticketId, file) => {
+    const path = `machine_received/${ticketId}_${Date.now()}_${file.name}`;
+    const { error } = await supabase.storage.from("inbound_enquiry").upload(path, file, { contentType: file.type });
+    if (error) throw error;
+    return supabase.storage.from("inbound_enquiry").getPublicUrl(path).data.publicUrl;
   };
 
   const handleSubmit = async (e) => {
@@ -178,8 +193,20 @@ export default function MachineReceived() {
       return;
     }
 
+    const isYes = formData.machineReceived === "yes";
+    if (isYes && !challanFile && !(selectedTicket.isHold && selectedTicket.challanCopyUrl)) {
+      toast({ title: "Validation Error", description: "Please attach the Challan Copy.", variant: "destructive" });
+      return;
+    }
+    if (isYes && cleanSrn(formData.srn).length === 0) {
+      toast({ title: "Validation Error", description: "Please enter at least one SRN number.", variant: "destructive" });
+      return;
+    }
+
     setIsSubmitting(true);
     try {
+      const challanUrl = isYes && challanFile ? await uploadChallan(selectedTicket.ticketId, challanFile) : null;
+      const srnList = isYes ? cleanSrn(formData.srn) : [];
       const updatedBy = userName || localStorage.getItem("currentUsername") || null;
 
       if (selectedTicket.isHold) {
@@ -192,7 +219,8 @@ export default function MachineReceived() {
             machine_received: release ? "yes" : "quotation_shared",
             warranty_check: formData.warrantyCheck,
             remarks: formData.remarks.trim() || null,
-            srn_numbers: cleanSrn(formData.srn),
+            srn_numbers: srnList,
+            ...(challanUrl ? { challan_copy_url: challanUrl } : {}),
             last_updated_by: updatedBy,
           })
           .eq("ticket_uuid", selectedTicket.ticketUuid);
@@ -220,7 +248,8 @@ export default function MachineReceived() {
         warranty_check: formData.warrantyCheck,
         quotation_planned: quotationPlanned,
         remarks: formData.remarks.trim() || null,
-        srn_numbers: cleanSrn(formData.srn),
+        srn_numbers: srnList,
+        challan_copy_url: challanUrl,
         last_updated_by: updatedBy,
       });
       if (error) throw error;
@@ -333,8 +362,25 @@ export default function MachineReceived() {
                   </div>
                 </div>
 
+                {formData.machineReceived === "yes" && (
+                <>
+                <div className="space-y-1">
+                  <Label htmlFor="mr-challan" className="font-medium text-muted-foreground">Challan Copy *</Label>
+                  <Input
+                    id="mr-challan"
+                    type="file"
+                    accept={CHALLAN_ACCEPT}
+                    className={ACTIVE_FIELD}
+                    disabled={isSubmitting}
+                    onChange={(e) => setChallanFile(e.target.files?.[0] || null)}
+                  />
+                  {!challanFile && selectedTicket?.challanCopyUrl && (
+                    <p className="text-xs text-muted-foreground">A challan is already attached; choose a file only to replace it.</p>
+                  )}
+                </div>
+
                 <div className="space-y-2">
-                  <Label className="font-medium text-muted-foreground">SRN Number(s)</Label>
+                  <Label className="font-medium text-muted-foreground">SRN Number(s) *</Label>
                   {formData.srn.map((value, idx) => (
                     <div key={idx} className="flex items-center gap-2">
                       <Input
@@ -374,6 +420,8 @@ export default function MachineReceived() {
                     <span className="text-xs text-muted-foreground">{formData.srn.length}/{MAX_SRN} - one SRN per machine</span>
                   </div>
                 </div>
+                </>
+                )}
 
                 <div className="space-y-1">
                   <Label htmlFor="mr-remarks" className="font-medium text-muted-foreground">Remarks</Label>

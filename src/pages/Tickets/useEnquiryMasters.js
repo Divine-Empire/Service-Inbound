@@ -32,7 +32,6 @@ export function useEnquiryMasters() {
     sub_category: "Sub-Category",
     inbound_enquiry_type: "Enquiry Type",
     service_location: "Service Location",
-    machine_name: "Machine Name",
   };
 
   const fetchDropdown = async () => {
@@ -57,6 +56,9 @@ export function useEnquiryMasters() {
       // Engineer names now come from Master > Engineer Contacts, not the
       // old 'engineer_assign_name' dropdown category — see engineers.js.
       structuredData["Engineer Assign Name"] = engineerNames;
+
+      // Machine Name options are not part of masterData: the form loads a sample / debounced search
+      // from the item catalog (lto_items) itself - see EnquiryFormModal.
 
       setMasterData([structuredData]);
     } catch (error) {

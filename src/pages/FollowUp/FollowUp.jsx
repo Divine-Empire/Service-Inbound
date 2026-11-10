@@ -261,6 +261,7 @@ export default function FollowUp() {
       mentionIssue: ticketDetails.mentionIssue || "",
 
       quotationNo: ticketDetails.quotationNo || "",
+      quotationPdfLink: ticketDetails.quotationPdfLink || "",
 
           engineer_assign: item.engineer_assign || ticketDetails.engineerAssign || "",
     };

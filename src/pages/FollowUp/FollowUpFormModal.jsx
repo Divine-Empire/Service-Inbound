@@ -25,9 +25,9 @@ export default function FollowUpFormModal({ ticket, masterData, updatedByName, o
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCancelled, setIsCancelled] = useState(false);
   const [cancelSubmit, setCancelSubmit] = useState(false);
-  const [isUploadingClientAttachment, setIsUploadingClientAttachment] = useState(false);
-  const [isUploadingAdvancePayment, setIsUploadingAdvancePayment] = useState(false);
-  const [isUploadingSeniorApproval, setIsUploadingSeniorApproval] = useState(false);
+  // Files are only picked here; they are uploaded when the form is submitted (never on selection),
+  // so cancelling the form leaves nothing behind in storage.
+  const [pickedFiles, setPickedFiles] = useState({});
   // Machine Received is still pending ("Quotation Shared"): Order Received cannot be filled yet.
   const orderBlocked = !!ticket.orderBlocked;
   const [formData, setFormData] = useState(() => ({
@@ -65,65 +65,15 @@ export default function FollowUpFormModal({ ticket, masterData, updatedByName, o
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
-  const uploadImageToDrive = async (file) => {
-    try {
-      return { success: true, fileUrl: await uploadFollowUpFile(selectedTicket?.ticketId, file) };
-    } catch (error) {
-      console.error("Error uploading image:", error);
-      toast({
-        title: "Error",
-        description: error.message || "Failed to upload image",
-        variant: "destructive",
-      });
-      return { success: false, error: error.message || "Failed to upload image" };
-    }
+  const handleFilePick = (field) => (e) => {
+    const file = e.target.files?.[0] || null;
+    setPickedFiles((prev) => ({ ...prev, [field]: file }));
   };
 
-  const handleClientAttachmentChange = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    setIsUploadingClientAttachment(true);
-    try {
-      const result = await uploadImageToDrive(file);
-      if (result.success && result.fileUrl) {
-        handleInputChange("clientAttachmentUrl", result.fileUrl);
-        toast({
-          title: "Success",
-          description: "Client Approval uploaded successfully",
-        });
-      } else {
-        e.target.value = null;
-        handleInputChange("clientAttachmentUrl", "");
-      }
-    } catch (error) {
-      console.error(error);
-      e.target.value = null;
-      handleInputChange("clientAttachmentUrl", "");
-    } finally {
-      setIsUploadingClientAttachment(false);
-    }
-  };
-
-  // Advance Payment / Senior Approval uploads (Order Received form).
-  const handleOrderFileChange = (field, setUploading) => async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    setUploading(true);
-    try {
-      const result = await uploadImageToDrive(file);
-      if (result.success && result.fileUrl) {
-        handleInputChange(field, result.fileUrl);
-        toast({ title: "Success", description: "File uploaded successfully" });
-      } else {
-        e.target.value = null;
-        handleInputChange(field, "");
-      }
-    } finally {
-      setUploading(false);
-    }
-  };
+  const pickedName = (field) =>
+    pickedFiles[field] ? (
+      <p className="mt-1 text-sm text-slate-600 truncate">Selected: {pickedFiles[field].name} (uploads on Submit)</p>
+    ) : null;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -159,8 +109,8 @@ export default function FollowUpFormModal({ ticket, masterData, updatedByName, o
         return;
       }
     } else if (formData.stage === "Order Received") {
-      if (!formData.clientAttachmentUrl) {
-        alert("Please add and upload file for client Attachment");
+      if (!formData.clientAttachmentUrl && !pickedFiles.clientAttachmentUrl) {
+        alert("Please attach the Client Approval file");
         return;
       }
       if (!formData.paymentTerm) {
@@ -177,12 +127,12 @@ export default function FollowUpFormModal({ ticket, masterData, updatedByName, o
       }
       // Advance Payment / Senior Approval are skipped for FOC (no payment).
       if (formData.paymentMode !== "FOC") {
-        if (needsAdvanceAttachment(formData.paymentMode) && !formData.advancePaymentAttachmentUrl) {
-          alert("Please add and upload Advance Payment Attachment");
+        if (needsAdvanceAttachment(formData.paymentMode) && !formData.advancePaymentAttachmentUrl && !pickedFiles.advancePaymentAttachmentUrl) {
+          alert("Please attach the Advance Payment Attachment");
           return;
         }
-        if (!formData.seniorApprovalUrl) {
-          alert("Please add and upload Senior Approval");
+        if (!formData.seniorApprovalUrl && !pickedFiles.seniorApprovalUrl) {
+          alert("Please attach the Senior Approval file");
           return;
         }
         if (!formData.seniorApprovedBy) {
@@ -201,13 +151,20 @@ export default function FollowUpFormModal({ ticket, masterData, updatedByName, o
         const legacyRow = selectedTicket?.legacyOrderRow;
         const planned = await computeOrderPlanned({ baseTime: new Date() });
 
+        // Upload the picked files now (the form is being submitted).
+        const urlFor = async (field) =>
+          pickedFiles[field] ? uploadFollowUpFile(selectedTicket?.ticketId, pickedFiles[field]) : formData[field];
+        const clientUrl = await urlFor("clientAttachmentUrl");
+        const advanceUrl = needsAdvanceAttachment(formData.paymentMode) ? await urlFor("advancePaymentAttachmentUrl") : null;
+        const seniorUrl = isFOC ? null : await urlFor("seniorApprovalUrl");
+
         const orderFields = {
-          client_attachment_url: formData.clientAttachmentUrl || null,
+          client_attachment_url: clientUrl || null,
           payment_term: formData.paymentTerm || null,
           acceptance_via: formData.acceptanceVia || null,
           payment_mode: formData.paymentMode || null,
-          advance_payment_attachment: needsAdvanceAttachment(formData.paymentMode) ? formData.advancePaymentAttachmentUrl || null : null,
-          senior_approval: isFOC ? null : formData.seniorApprovalUrl || null,
+          advance_payment_attachment: advanceUrl || null,
+          senior_approval: seniorUrl || null,
           senior_approved_by: isFOC ? null : formData.seniorApprovedBy || null,
           last_updated_by: updatedByName,
           // The separate Order Received stage is gone — never feed it again.
@@ -364,19 +321,13 @@ export default function FollowUpFormModal({ ticket, masterData, updatedByName, o
           <div>
             <Label className="flex items-center gap-2">
               Client Approval *
-              {isUploadingClientAttachment && (
-                <LoaderIcon className="animate-spin w-4 h-4 text-blue-600" />
-              )}
             </Label>
             <Input
               type="file"
-              disabled={isUploadingClientAttachment}
-              onChange={handleClientAttachmentChange}
+              onChange={handleFilePick("clientAttachmentUrl")}
               data-testid="approval-attachments"
             />
-            {isUploadingClientAttachment && (
-              <p className="text-xs text-blue-600 mt-1">Uploading file, please wait...</p>
-            )}
+            {pickedName("clientAttachmentUrl")}
             {formData.clientAttachmentUrl && (
               <p className="mt-1 text-sm text-green-600">
                 Current attachment:{" "}
@@ -467,16 +418,13 @@ export default function FollowUpFormModal({ ticket, masterData, updatedByName, o
             <div>
               <Label className="flex items-center gap-2">
                 Advance Payment Attachment *
-                {isUploadingAdvancePayment && (
-                  <LoaderIcon className="animate-spin w-4 h-4 text-blue-600" />
-                )}
               </Label>
               <Input
                 type="file"
-                disabled={isUploadingAdvancePayment}
-                onChange={handleOrderFileChange("advancePaymentAttachmentUrl", setIsUploadingAdvancePayment)}
+                onChange={handleFilePick("advancePaymentAttachmentUrl")}
                 data-testid="input-advance-payment-attachment"
               />
+              {pickedName("advancePaymentAttachmentUrl")}
               {formData.advancePaymentAttachmentUrl && (
                 <p className="mt-1 text-sm text-green-600">
                   Uploaded:{" "}
@@ -497,16 +445,13 @@ export default function FollowUpFormModal({ ticket, masterData, updatedByName, o
             <div>
               <Label className="flex items-center gap-2">
                 Senior Approval *
-                {isUploadingSeniorApproval && (
-                  <LoaderIcon className="animate-spin w-4 h-4 text-blue-600" />
-                )}
               </Label>
               <Input
                 type="file"
-                disabled={isUploadingSeniorApproval}
-                onChange={handleOrderFileChange("seniorApprovalUrl", setIsUploadingSeniorApproval)}
+                onChange={handleFilePick("seniorApprovalUrl")}
                 data-testid="input-senior-approval"
               />
+              {pickedName("seniorApprovalUrl")}
               {formData.seniorApprovalUrl && (
                 <p className="mt-1 text-sm text-green-600">
                   Uploaded:{" "}
@@ -656,9 +601,6 @@ export default function FollowUpFormModal({ ticket, masterData, updatedByName, o
                   type="submit"
                   disabled={
                     isSubmitting ||
-                    isUploadingClientAttachment ||
-                    isUploadingAdvancePayment ||
-                    isUploadingSeniorApproval ||
                     (formData.stage === "Order Received" && orderBlocked)
                   }
                   data-testid="button-submit-followup"
