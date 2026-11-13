@@ -137,6 +137,20 @@ export default function EnquiryFormModal({ ticket, masterData, companyDetails, o
     setGstLocked(locked);
   };
 
+  // Free-typed machine (not in the item catalog). Only ever goes into this ticket's machine_name
+  // payload — nothing here writes to lto_items.
+  const addCustomMachine = () => {
+    const name = machineSearchQuery.trim();
+    if (!name) return;
+    const existing = machineOptions.find((o) => o.toLowerCase() === name.toLowerCase());
+    const finalName = existing || name;
+    setNewFormSelectedMachines((prev) =>
+      prev.some((m) => m.name.toLowerCase() === finalName.toLowerCase()) ? prev : [...prev, { name: finalName, qty: 1 }]
+    );
+    setMachineSearchQuery("");
+    setShowMachineDropdown(false);
+  };
+
   const userName = localStorage.getItem("currentUsername");
 
 
@@ -540,6 +554,7 @@ export default function EnquiryFormModal({ ticket, masterData, companyDetails, o
                           placeholder="Search machine..."
                           value={machineSearchQuery}
                           onChange={(e) => setMachineSearchQuery(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addCustomMachine(); } }}
                           className="h-8 text-xs border-gray-200"
                         />
                       </div>
@@ -561,6 +576,17 @@ export default function EnquiryFormModal({ ticket, masterData, companyDetails, o
                             {option}
                           </button>
                         ))}
+                        {machineSearchQuery.trim() &&
+                          !machineOptions.some((o) => o.toLowerCase() === machineSearchQuery.trim().toLowerCase()) &&
+                          !newFormSelectedMachines.some((m) => m.name.toLowerCase() === machineSearchQuery.trim().toLowerCase()) && (
+                            <button
+                              type="button"
+                              onClick={addCustomMachine}
+                              className="flex w-full items-center rounded-sm border-t border-gray-100 px-2 py-1.5 text-sm font-medium text-brand-700 hover:bg-slate-100 text-left"
+                            >
+                              + Add "{machineSearchQuery.trim()}" (custom machine)
+                            </button>
+                          )}
                         {machineLoading && <p className="text-xs text-gray-500 text-center py-2">Searching...</p>}
                         {!machineLoading && machineError && <p className="text-xs text-red-600 text-center py-2">Could not load machines</p>}
                         {!machineLoading && !machineError && machineOptions.length === 0 && (
