@@ -41,7 +41,12 @@ const COLUMNS = [
   { key: "siteAddress", label: "Site Address", defaultVisible: false, wrap: true, width: 200, text: (r) => r.siteAddress },
   { key: "machineName", label: "Machine Name", defaultVisible: false, wrap: true, width: 160, text: (r) => r.machineName },
   { key: "mentionIssue", label: "Mention Issue", defaultVisible: false, wrap: true, width: 200, text: (r) => r.mentionIssue },
-  { key: "followUpCount", label: "Follow-Ups", defaultVisible: true, tabs: ["pending", "hold"], text: (r) => String(r.followUpCount || 0) },
+  { key: "followUpCount", label: "Follow-Ups", defaultVisible: true, tabs: ["pending", "hold"], cell: (r, { onViewFollowUps }) =>
+    r.followUpCount ? (
+      <Button type="button" size="sm" variant="outline" className="h-7 min-w-8 px-2 font-semibold" title="View all follow-ups" onClick={() => onViewFollowUps(r)}>
+        {r.followUpCount}
+      </Button>
+    ) : "0" },
   { key: "lastFollowUpAt", label: "Last Follow-Up", defaultVisible: true, tabs: ["pending", "hold"], text: (r) => (r.followUpCount ? formatDate(r.lastFollowUpAt) : "N/A") },
   { key: "nextFollowUpDate", label: "Next Follow-Up Date", defaultVisible: true, tabs: ["pending", "hold"], cell: (r) =>
     r.nextFollowUpDate ? (
@@ -85,7 +90,9 @@ export default function MachineReceived() {
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [formData, setFormData] = useState(EMPTY_FORM);
   const [challanFile, setChallanFile] = useState(null);
+  const [logsTicket, setLogsTicket] = useState(null);
   const [followUpLogs, setFollowUpLogs] = useState([]);
+  const [logsLoading, setLogsLoading] = useState(false);
 
   const [pendingData, setPendingData] = useState([]);
   const [historyData, setHistoryData] = useState([]);
@@ -193,16 +200,21 @@ export default function MachineReceived() {
         : EMPTY_FORM
     );
     setChallanFile(null);
-    setFollowUpLogs([]);
     setShowModal(true);
-    if (ticket.followUpCount) {
-      supabase
-        .from("inbound_machine_follow_up")
-        .select("id, next_follow_up_date, customer_said, remarks, created_by, created_at")
-        .eq("ticket_uuid", ticket.ticketUuid)
-        .order("created_at", { ascending: false })
-        .then(({ data }) => setFollowUpLogs(data || []));
-    }
+  };
+
+  const handleViewFollowUps = async (ticket) => {
+    setLogsTicket(ticket);
+    setFollowUpLogs([]);
+    setLogsLoading(true);
+    const { data, error } = await supabase
+      .from("inbound_machine_follow_up")
+      .select("id, next_follow_up_date, customer_said, remarks, created_by, created_at")
+      .eq("ticket_uuid", ticket.ticketUuid)
+      .order("created_at", { ascending: false });
+    if (error) toast({ title: "Error", description: "Failed to load follow-ups", variant: "destructive" });
+    setFollowUpLogs(data || []);
+    setLogsLoading(false);
   };
 
   const uploadChallan = async (ticketId, file) => {
@@ -346,7 +358,7 @@ export default function MachineReceived() {
       <ListToolbar list={list} searchPlaceholder="Search by ticket ID, client, company, phone or SRN..." filtersInDialog />
       <ListTable
         list={list}
-        ctx={{ onProcess: handleProcessClick }}
+        ctx={{ onProcess: handleProcessClick, onViewFollowUps: handleViewFollowUps }}
         rowKey={(r) => r.ticketId}
         emptyTitle={{ pending: "No pending machine received entries found.", hold: "No quotation shared orders.", history: "No history found." }}
         ariaLabel="Machine received"
@@ -358,57 +370,68 @@ export default function MachineReceived() {
           if (!isSubmitting) setShowModal(false);
         }}
         title="Machine Received"
-        size="lg"
+        size="4xl"
+        bodyClassName="p-3"
       >
-        <div className="rounded-lg bg-card">
-          <div className="p-4">
-            {/* Fixed-height form: the fields scroll, the Cancel / Submit footer stays in view. */}
-            <form onSubmit={handleSubmit} className="flex h-[min(75vh,520px)] flex-col gap-3">
-              <div className="flex-1 space-y-3 overflow-y-auto pr-1">
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                <div className="space-y-1">
-                  <Label htmlFor="mr-ticketId" className="font-medium text-muted-foreground">Ticket ID</Label>
-                  <Input id="mr-ticketId" value={selectedTicket?.ticketId || ""} disabled className={READONLY_INPUT} />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="mr-clientName" className="font-medium text-muted-foreground">Client Name</Label>
-                  <Input id="mr-clientName" value={selectedTicket?.clientName || ""} disabled className={READONLY_INPUT} />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="mr-phoneNumber" className="font-medium text-muted-foreground">Phone Number</Label>
-                  <Input id="mr-phoneNumber" value={selectedTicket?.phoneNumber || ""} disabled className={READONLY_INPUT} />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="mr-machineName" className="font-medium text-muted-foreground">Machine Name</Label>
-                  <Input id="mr-machineName" value={selectedTicket?.machineName || ""} disabled className={READONLY_INPUT} />
-                </div>
+        {/* Fixed-height form: the fields scroll, the Cancel / Submit footer stays in view. */}
+        <form onSubmit={handleSubmit} className="flex h-[min(78vh,620px)] flex-col gap-3">
+          <div className="flex-1 space-y-4 overflow-y-auto pr-1">
+            <div className="grid grid-cols-1 gap-4 rounded-lg border border-slate-200 bg-slate-50/60 p-5 md:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="mr-ticketId" className="font-medium text-muted-foreground">Ticket ID</Label>
+                <Input id="mr-ticketId" value={selectedTicket?.ticketId || ""} disabled className={READONLY_INPUT} />
               </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="mr-clientName" className="font-medium text-muted-foreground">Client Name</Label>
+                <Input id="mr-clientName" value={selectedTicket?.clientName || ""} disabled className={READONLY_INPUT} />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="mr-phoneNumber" className="font-medium text-muted-foreground">Phone Number</Label>
+                <Input id="mr-phoneNumber" value={selectedTicket?.phoneNumber || ""} disabled className={READONLY_INPUT} />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="mr-machineName" className="font-medium text-muted-foreground">Machine Name</Label>
+                <Input id="mr-machineName" value={selectedTicket?.machineName || ""} disabled className={READONLY_INPUT} />
+              </div>
+            </div>
 
-              <div className="space-y-3 border-t pt-3">
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                  <div className="space-y-1">
-                    <Label htmlFor="mr-machineReceived" className="font-medium text-muted-foreground">Machine-Received *</Label>
-                    <Select
-                      value={formData.machineReceived}
-                      onValueChange={(value) => setFormData((prev) => ({ ...prev, machineReceived: value }))}
-                      disabled={isSubmitting}
-                    >
-                      <SelectTrigger id="mr-machineReceived" className={ACTIVE_FIELD}>
-                        <SelectValue placeholder="Select option" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-white border border-slate-200 shadow-md">
-                        <SelectItem value="yes">Yes</SelectItem>
-                        <SelectItem value="follow_up">Follow-Up</SelectItem>
-                        <SelectItem value="quotation_shared">Quotation Shared</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+            <div className="space-y-4 rounded-lg border border-slate-200 p-5">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor="mr-machineReceived" className="font-medium text-muted-foreground">Machine-Received *</Label>
+                  <Select
+                    value={formData.machineReceived}
+                    onValueChange={(value) => setFormData((prev) => ({ ...prev, machineReceived: value }))}
+                    disabled={isSubmitting}
+                  >
+                    <SelectTrigger id="mr-machineReceived" className={ACTIVE_FIELD}>
+                      <SelectValue placeholder="Select option" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white border border-slate-200 shadow-md">
+                      <SelectItem value="yes">Yes</SelectItem>
+                      <SelectItem value="follow_up">Follow-Up</SelectItem>
+                      <SelectItem value="quotation_shared">Quotation Shared</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
+
+                {formData.machineReceived === "follow_up" && (
+                  <div className="space-y-1.5">
+                    <Label htmlFor="mr-nextFollowUp" className="font-medium text-muted-foreground">Next Follow-Up Date *</Label>
+                    <Input
+                      id="mr-nextFollowUp"
+                      type="date"
+                      min={todayYmd()}
+                      className={ACTIVE_FIELD}
+                      value={formData.nextFollowUpDate}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, nextFollowUpDate: e.target.value }))}
+                      disabled={isSubmitting}
+                    />
+                  </div>
+                )}
 
                 {formData.machineReceived === "yes" && (
-                <>
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                  <div className="space-y-1">
+                  <div className="space-y-1.5">
                     <Label htmlFor="mr-warrantyCheck" className="font-medium text-muted-foreground">Warranty Check *</Label>
                     <Select
                       value={formData.warrantyCheck}
@@ -424,8 +447,12 @@ export default function MachineReceived() {
                       </SelectContent>
                     </Select>
                   </div>
-                </div>
-                <div className="space-y-1">
+                )}
+              </div>
+
+              {formData.machineReceived === "yes" && (
+                <>
+                <div className="space-y-1.5">
                   <Label htmlFor="mr-challan" className="font-medium text-muted-foreground">Challan Copy *</Label>
                   <Input
                     id="mr-challan"
@@ -482,40 +509,24 @@ export default function MachineReceived() {
                   </div>
                 </div>
                 </>
-                )}
+              )}
 
+              <div className={formData.machineReceived === "follow_up" ? "grid grid-cols-1 gap-4 md:grid-cols-2" : ""}>
                 {formData.machineReceived === "follow_up" && (
-                <>
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                  <div className="space-y-1">
-                    <Label htmlFor="mr-nextFollowUp" className="font-medium text-muted-foreground">Next Follow-Up Date *</Label>
-                    <Input
-                      id="mr-nextFollowUp"
-                      type="date"
-                      min={todayYmd()}
+                  <div className="space-y-1.5">
+                    <Label htmlFor="mr-customerSaid" className="font-medium text-muted-foreground">What did customer say *</Label>
+                    <Textarea
+                      id="mr-customerSaid"
+                      placeholder="Enter what the customer said"
+                      rows={3}
                       className={ACTIVE_FIELD}
-                      value={formData.nextFollowUpDate}
-                      onChange={(e) => setFormData((prev) => ({ ...prev, nextFollowUpDate: e.target.value }))}
+                      value={formData.customerSaid}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, customerSaid: e.target.value }))}
                       disabled={isSubmitting}
                     />
                   </div>
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="mr-customerSaid" className="font-medium text-muted-foreground">What did customer say *</Label>
-                  <Textarea
-                    id="mr-customerSaid"
-                    placeholder="Enter what the customer said"
-                    rows={2}
-                    className={ACTIVE_FIELD}
-                    value={formData.customerSaid}
-                    onChange={(e) => setFormData((prev) => ({ ...prev, customerSaid: e.target.value }))}
-                    disabled={isSubmitting}
-                  />
-                </div>
-                </>
                 )}
-
-                <div className="space-y-1">
+                <div className="space-y-1.5">
                   <Label htmlFor="mr-remarks" className="font-medium text-muted-foreground">Remarks</Label>
                   <Textarea
                     id="mr-remarks"
@@ -528,44 +539,57 @@ export default function MachineReceived() {
                   />
                 </div>
               </div>
+            </div>
+          </div>
 
-              {followUpLogs.length > 0 && (
-                <div className="space-y-2 border-t pt-3">
-                  <Label className="font-medium text-muted-foreground">Previous follow-ups ({followUpLogs.length})</Label>
-                  <ul className="space-y-2">
-                    {followUpLogs.map((f) => (
-                      <li key={f.id} className="rounded-md border border-slate-200 bg-slate-50 p-2 text-xs">
-                        <div className="flex justify-between gap-2 font-medium text-slate-700">
-                          <span>{formatDate(f.created_at)}{f.created_by ? " - " + f.created_by : ""}</span>
-                          <span>Next: {formatDate(f.next_follow_up_date)}</span>
-                        </div>
-                        <p className="mt-1 text-slate-600">{f.customer_said}</p>
-                        {f.remarks && <p className="mt-1 text-slate-500">Remarks: {f.remarks}</p>}
-                      </li>
-                    ))}
-                  </ul>
+          <div className="flex shrink-0 justify-end gap-2 border-t pt-3">
+            <Button type="button" variant="outline" onClick={() => setShowModal(false)} disabled={isSubmitting}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? (
+                <span className="flex items-center">
+                  <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
+                  Submitting...
+                </span>
+              ) : (
+                "Submit"
+              )}
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal
+        isOpen={!!logsTicket}
+        onClose={() => setLogsTicket(null)}
+        title={"Follow-Ups - " + (logsTicket?.ticketId || "")}
+        size="3xl"
+        bodyClassName="p-3"
+      >
+        <div className="max-h-[70vh] space-y-3 overflow-y-auto p-2">
+          {logsLoading && <p className="py-6 text-center text-sm text-muted-foreground">Loading...</p>}
+          {!logsLoading && followUpLogs.length === 0 && (
+            <p className="py-6 text-center text-sm text-muted-foreground">No follow-ups yet.</p>
+          )}
+          {followUpLogs.map((f, i) => (
+            <div key={f.id} className="space-y-2 rounded-lg border border-slate-200 bg-slate-50/60 p-4 text-sm">
+              <div className="flex flex-wrap items-center justify-between gap-2 font-medium text-slate-700">
+                <span>#{followUpLogs.length - i} - {formatDate(f.created_at)}{f.created_by ? " - " + f.created_by : ""}</span>
+                <StatusBadge tone="info">Next: {formatDate(f.next_follow_up_date)}</StatusBadge>
+              </div>
+              <div>
+                <p className="text-xs font-medium text-muted-foreground">What customer said</p>
+                <p className="text-slate-700">{f.customer_said}</p>
+              </div>
+              {f.remarks && (
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground">Remarks</p>
+                  <p className="text-slate-700">{f.remarks}</p>
                 </div>
               )}
-
-              </div>
-
-              <div className="flex shrink-0 justify-end gap-2 border-t pt-3">
-                <Button type="button" variant="outline" onClick={() => setShowModal(false)} disabled={isSubmitting}>
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={isSubmitting}>
-                  {isSubmitting ? (
-                    <span className="flex items-center">
-                      <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
-                      Submitting...
-                    </span>
-                  ) : (
-                    "Submit"
-                  )}
-                </Button>
-              </div>
-            </form>
-          </div>
+            </div>
+          ))}
         </div>
       </Modal>
     </div>

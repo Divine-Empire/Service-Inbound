@@ -1,7 +1,7 @@
 import { X } from "lucide-react";
 import { Button } from "../../components/ui/button";
 
-export function Modal({ isOpen, onClose, title, children, size = "2xl" }) {
+export function Modal({ isOpen, onClose, title, children, size = "2xl", bodyClassName = "p-6" }) {
   if (!isOpen) return null;
 
   const sizeClasses = {
@@ -32,7 +32,7 @@ export function Modal({ isOpen, onClose, title, children, size = "2xl" }) {
               <X className="h-4 w-4" />
             </Button>
           </div>
-          <div className="p-6">
+          <div className={bodyClassName}>
             {children}
           </div>
         </div>
