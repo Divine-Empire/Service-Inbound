@@ -8,7 +8,6 @@ import {
   Receipt,
   UserCheck,
   Gauge,
-  Award,
   Truck,
   XCircle,
   Database,
@@ -29,7 +28,6 @@ export const navigation = [
   { name: "Invoice", href: "/invoice", icon: Receipt },
   { name: "Spare Dispatch Details", label: "Machine Handover", href: "/machine-handover", icon: Truck },
   { name: "Calibration", href: "/calibration", icon: Gauge },
-  { name: "Calibration Certificate", href: "/calibrationCertificate", icon: Award, comingSoon: true },
   { name: "Report", href: "/report", icon: ClipboardList },
   { name: "Cancel", label: "Cancelled Tickets", href: "/cancel", icon: XCircle },
   {

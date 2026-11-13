@@ -169,7 +169,7 @@ export default function Dashboard() {
       const orderedTicketIds = new Set();
       const crmPlannedByTicket = new Map();
       (followUpRows || []).forEach((f) => {
-        latestFollowUpByTicket.set(f.ticket_uuid, f);
+        if (f.stage !== "Make PI") latestFollowUpByTicket.set(f.ticket_uuid, f);
         if (f.stage === "Order Received") {
           if (f.payment_mode) orderedTicketIds.add(f.ticket_uuid);
           if (f.crm_verification_planned) crmPlannedByTicket.set(f.ticket_uuid, f.crm_verification_planned);

@@ -48,7 +48,11 @@ export default function FollowUpFormModal({ ticket, masterData, updatedByName, o
     remarks: ticket.quotationremarks || "",
     // Legacy 'Order Received' row without order details: only the Order
     // Received form applies, and its Client Approval is already uploaded.
-    stage: ticket.legacyOrderRow ? "Order Received" : "",
+    // Proforma Inv. tab rows (PI already made) and legacy order rows only ever process Order Received.
+    stage: ticket.legacyOrderRow || ticket.fromProforma ? "Order Received" : "",
+    piNumber: "",
+    piAmount: "",
+    piRemarks: "",
     whatDidCustomerSay: "",
     nextAction: "",
     nextDateOfCall: "",
@@ -94,7 +98,21 @@ export default function FollowUpFormModal({ ticket, masterData, updatedByName, o
 
     if (formData.stage === "Order Received" && orderBlocked) return;
 
-    if (formData.stage === "Follow-Up") {
+    if (formData.stage === "Make PI") {
+      if (!formData.piNumber.trim()) {
+        alert("Please enter the PI Number");
+        return;
+      }
+      const amount = Number(formData.piAmount);
+      if (formData.piAmount === "" || !Number.isFinite(amount) || amount < 0) {
+        alert("Please enter a valid PI Amount");
+        return;
+      }
+      if (!pickedFiles.piUpload) {
+        alert("Please attach the PI Upload file");
+        return;
+      }
+    } else if (formData.stage === "Follow-Up") {
       if (!formData.whatDidCustomerSay) {
         alert("Please Write Something in What did Customer Say");
         return;
@@ -146,7 +164,22 @@ export default function FollowUpFormModal({ ticket, masterData, updatedByName, o
 
     try {
       let error;
-      if (formData.stage === "Order Received") {
+      if (formData.stage === "Make PI") {
+        // Proforma Invoice: a log row only. The ticket moves to the Proforma Inv. tab and waits there
+        // for its Order Received; no stage / planned time is touched.
+        const piUrl = await uploadFollowUpFile(selectedTicket?.ticketId, pickedFiles.piUpload);
+        ({ error } = await supabase.from("inbound_follow_up").insert({
+          ticket_id: formData.ticketId,
+          ticket_uuid: formData.ticketUuid,
+          stage: "Make PI",
+          engineer_assign: formData.engineerAssign || null,
+          pi_number: formData.piNumber.trim(),
+          pi_amount: Number(formData.piAmount),
+          pi_upload: piUrl,
+          pi_remarks: formData.piRemarks.trim() || null,
+          last_updated_by: updatedByName,
+        }));
+      } else if (formData.stage === "Order Received") {
         const isFOC = formData.paymentMode === "FOC";
         const legacyRow = selectedTicket?.legacyOrderRow;
         const planned = await computeOrderPlanned({ baseTime: new Date() });
@@ -311,6 +344,46 @@ export default function FollowUpFormModal({ ticket, masterData, updatedByName, o
                 handleInputChange("nextDateOfCall", e.target.value)
               }
               data-testid="input-next-date"
+            />
+          </div>
+        </>
+      );
+    } else if (stage === "Make PI") {
+      return (
+        <>
+          <div>
+            <Label>PI Number *</Label>
+            <Input
+              placeholder="Enter PI number"
+              value={formData.piNumber}
+              onChange={(e) => handleInputChange("piNumber", e.target.value)}
+              data-testid="input-pi-number"
+            />
+          </div>
+          <div>
+            <Label>PI Amount *</Label>
+            <Input
+              type="number"
+              min={0}
+              step="any"
+              placeholder="Enter PI amount"
+              value={formData.piAmount}
+              onChange={(e) => handleInputChange("piAmount", e.target.value)}
+              data-testid="input-pi-amount"
+            />
+          </div>
+          <div>
+            <Label>PI Upload *</Label>
+            <Input type="file" onChange={handleFilePick("piUpload")} data-testid="input-pi-upload" />
+            {pickedName("piUpload")}
+          </div>
+          <div>
+            <Label>Remarks</Label>
+            <Input
+              placeholder="Enter any remarks..."
+              value={formData.piRemarks}
+              onChange={(e) => handleInputChange("piRemarks", e.target.value)}
+              data-testid="input-pi-remarks"
             />
           </div>
         </>
@@ -577,7 +650,7 @@ export default function FollowUpFormModal({ ticket, masterData, updatedByName, o
                 <Select
                   value={formData.stage || undefined} // Use undefined instead of empty string
                   onValueChange={(value) => handleInputChange("stage", value)}
-                  disabled={!!selectedTicket?.legacyOrderRow}
+                  disabled={!!selectedTicket?.legacyOrderRow || !!selectedTicket?.fromProforma}
                 >
                   <SelectTrigger data-testid="select-stage">
                     <SelectValue placeholder="Select stage" />
@@ -585,6 +658,9 @@ export default function FollowUpFormModal({ ticket, masterData, updatedByName, o
                   <SelectContent className="bg-white border border-gray-300 rounded-md shadow-lg">
                     <SelectItem value="Follow-Up" className="hover:bg-blue-50 focus:bg-blue-50">
                       Follow-Up
+                    </SelectItem>
+                    <SelectItem value="Make PI" className="hover:bg-blue-50 focus:bg-blue-50">
+                      Make PI
                     </SelectItem>
                     <SelectItem value="Order Received" className="hover:bg-blue-50 focus:bg-blue-50">
                       Order Received

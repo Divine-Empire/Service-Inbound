@@ -8,7 +8,6 @@ import { useClientList } from "../../hooks/useClientList";
 import { useToast } from "../../hooks/use-toast";
 import { Loader2Icon } from "lucide-react";
 import { supabase } from "../../lib/supabase/client";
-import { computeStagePlanned } from "../../lib/supabase/stagePlanning";
 import { formatDate, formatDateTimeShort, formatDelayLabel, delayTone } from "../../lib/format";
 import { enquiryTypeText, enquiryTypeList } from "../../lib/enquiryType";
 
@@ -266,10 +265,6 @@ export default function Calibration() {
       const uploadedUrls = {};
       for (const u of required) uploadedUrls[u.field] = await uploadToStorage(uploadFiles[u.field]);
 
-      const submittedAt = new Date();
-      const calibrationCertificatePlanned = await computeStagePlanned("calibrationCertificate", {
-        calibrationSubmittedAt: submittedAt,
-      });
 
       const { error } = await supabase.from("inbound_calibration").insert({
         ticket_id: selectedTicket.ticketId,
@@ -279,9 +274,6 @@ export default function Calibration() {
         calibration_due_date: calibrationDueDate || null,
         auto_level_upload_file: uploadedUrls.autoLevelUpload || null,
         total_station_upload_file: uploadedUrls.totalStationUpload || null,
-        // Readiness stamp for the next stage (Calibration Certificate) —
-        // every Calibration submission gets this. See stagePlanning.js.
-        calibration_certificate_planned: calibrationCertificatePlanned,
       });
 
       if (error) throw error;

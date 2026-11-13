@@ -24,7 +24,7 @@ import { enquiryTypeText, enquiryTypeList } from "../../lib/enquiryType";
 // makes sense (billing/downstream paperwork has already started on it) —
 // it's dropped from this page's list entirely, not just its Edit button.
 // "Cancelled" is set by the inbound_cancelled_tickets trigger.
-const EDIT_EXCLUDED_STAGES = ["Invoice", "Calibration", "Calibration Certificate", "Machine Handover", "Cancelled"];
+const EDIT_EXCLUDED_STAGES = ["Invoice", "Calibration", "Machine Handover", "Cancelled"];
 
 export default function Tickets() {
   const [pendingData, setPendingData] = useState([]);

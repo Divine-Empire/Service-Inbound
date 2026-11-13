@@ -13,7 +13,6 @@ const FollowUp = lazy(() => import("../pages/FollowUp/FollowUp"));
 const CrmVerification = lazy(() => import("../pages/CrmVerification/CrmVerification"));
 const Invoice = lazy(() => import("../pages/Invoice/Invoice"));
 const Calibration = lazy(() => import("../pages/Calibration/Calibration"));
-const CalibrationCertificate = lazy(() => import("../pages/CalibrationCertificate/CalibrationCertificate"));
 const MachineHandover = lazy(() => import("../pages/MachineHandover/MachineHandover"));
 const CancelledTickets = lazy(() => import("../pages/Cancelled_Tickets/Cancelled_Tickets"));
 const Report = lazy(() => import("../pages/Report/Report"));
@@ -46,7 +45,6 @@ export default function AppRoutes() {
         <Route path="crm-verification" element={<CrmVerification />} />
         <Route path="invoice" element={<Invoice />} />
         <Route path="calibration" element={<Calibration />} />
-        <Route path="calibrationCertificate" element={<CalibrationCertificate />} />
         <Route path="machine-handover" element={<MachineHandover />} />
         <Route path="cancel" element={<CancelledTickets />} />
         <Route path="report" element={<Report />} />

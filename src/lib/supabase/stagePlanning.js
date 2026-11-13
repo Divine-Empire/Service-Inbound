@@ -205,15 +205,6 @@ export const STAGE_PLANNING_RULES = {
     shouldPlan: () => true,
     baseTime: (ctx) => ctx.invoiceSubmittedAt,
   },
-
-  // Calibration -> Calibration Certificate. Every Calibration submission
-  // moves on to Calibration Certificate (no branching); base time is
-  // Calibration's own submit-time timestamp.
-  calibrationCertificate: {
-    tatStageName: "Calibration Certificate",
-    shouldPlan: () => true,
-    baseTime: (ctx) => ctx.calibrationSubmittedAt,
-  },
 };
 
 /**

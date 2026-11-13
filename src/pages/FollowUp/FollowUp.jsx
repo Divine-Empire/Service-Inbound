@@ -50,6 +50,7 @@ export default function FollowUp() {
 
   const { toast } = useToast();
   const [pendingData, setPendingData] = useState([]);
+  const [proformaData, setProformaData] = useState([]);
   const [historyData, setHistoryData] = useState([]);
   const [masterData, setMasterData] = useState({});
 
@@ -73,6 +74,7 @@ export default function FollowUp() {
 
       if (ticketUuids.length === 0) {
         setPendingData([]);
+        setProformaData([]);
         setFollowUpData([]);
         setTicketsMap({});
         return;
@@ -115,13 +117,18 @@ export default function FollowUp() {
       });
 
       // Latest follow_up log per ticket (rows are fetched created_at ascending, so the last one wins).
+      // Make PI rows carry no call details, so they never count as the "latest follow-up".
       const latestFollowUpByTicket = new Map();
+      const makePiRowByTicket = new Map();
       (followUpRows || []).forEach((f) => {
-        latestFollowUpByTicket.set(f.ticket_uuid, f);
+        if (f.stage === "Make PI") makePiRowByTicket.set(f.ticket_uuid, f);
+        else latestFollowUpByTicket.set(f.ticket_uuid, f);
       });
 
       const ticketsMapObj = {};
       const pending = [];
+      const proforma = [];
+      const orderedUuids = new Set();
       
       (ticketsData || []).forEach((t) => {
         const q = quotationByTicket.get(t.uuid);
@@ -164,9 +171,26 @@ export default function FollowUp() {
         ticketsMapObj[t.ticket_id] = base;
 
         const orderRow = orderReceivedRowByTicket.get(t.uuid);
-        if (!orderRow) {
+        const piRow = makePiRowByTicket.get(t.uuid);
+        if (orderRow?.payment_mode) {
+          orderedUuids.add(t.uuid);
+        } else if (piRow) {
+          // PI made: waits in the Proforma Inv. tab until its Order Received is submitted.
+          proforma.push({
+            ...base,
+            fromProforma: true,
+            legacyOrderRow: orderRow || undefined,
+            clientAttachment: orderRow?.client_attachment_url || "",
+            piNumber: piRow.pi_number || "",
+            piAmount: piRow.pi_amount ?? "",
+            piUpload: piRow.pi_upload || "",
+            piRemarks: piRow.pi_remarks || "",
+            piDate: piRow.created_at || "",
+            piUpdatedBy: piRow.last_updated_by || "",
+          });
+        } else if (!orderRow) {
           pending.push(base);
-        } else if (!orderRow.payment_mode) {
+        } else {
           pending.push({
             ...base,
             legacyOrderRow: orderRow,
@@ -177,7 +201,9 @@ export default function FollowUp() {
 
       setTicketsMap(ticketsMapObj);
       setPendingData(pending);
-      setFollowUpData(followUpRows || []);
+      setProformaData(proforma);
+      // A Make PI row reaches History only once the ticket's order has been received.
+      setFollowUpData((followUpRows || []).filter((f) => f.stage !== "Make PI" || orderedUuids.has(f.ticket_uuid)));
     } catch (error) {
       console.error("Error fetching data:", error);
       setLoadError(error.message || "Failed to load data");
@@ -201,6 +227,10 @@ export default function FollowUp() {
         if (!structured[key]) structured[key] = [];
         structured[key].push(value);
       });
+      // "PI Against Advance" is not offered in Service-Inbound (sss_dropdown is shared, so it is hidden here, not deleted).
+      if (structured["Payment Mode"]) {
+        structured["Payment Mode"] = structured["Payment Mode"].filter((v) => v !== "PI Against Advance");
+      }
       setMasterData(structured);
     } catch (error) {
       console.error("Error fetching master data:", error);
@@ -235,6 +265,20 @@ export default function FollowUp() {
         pendingUpdatedBy.length === 0 || pendingUpdatedBy.includes(String(item.lastUpdatedBy ?? item.last_updated_by ?? "").trim());
 
       return matchesSearch && matchesUpdatedBy;
+    })
+    .reverse();
+
+  const filteredProformaData = proformaData
+    .filter((item) => {
+      const q = searchItem.toLowerCase();
+      return (
+        String(item.ticketId || "").toLowerCase().includes(q) ||
+        String(item.clientName || "").toLowerCase().includes(q) ||
+        String(item.companyName || "").toLowerCase().includes(q) ||
+        String(item.phoneNumber || "").toLowerCase().includes(q) ||
+        String(item.quotationNo || "").toLowerCase().includes(q) ||
+        String(item.piNumber || "").toLowerCase().includes(q)
+      );
     })
     .reverse();
 
@@ -342,8 +386,10 @@ export default function FollowUp() {
     key: "followup",
     data: {
       pending: finalFilteredPendingDataa,
+      proforma: filteredProformaData,
       history: finalFilteredHistoryDataa,
     },
+    tabLabels: { pending: "Pending", proforma: "Proforma Inv.", history: "History" },
     loading: fetchLoading,
     error: loadError,
     onRetry: fetchData,
@@ -365,7 +411,9 @@ export default function FollowUp() {
     const rows =
       activeTab === "history"
         ? finalFilteredHistoryDataa
-        : finalFilteredPendingDataa;
+        : activeTab === "proforma"
+          ? filteredProformaData
+          : finalFilteredPendingDataa;
     if (rows.length === 0) {
       toast({ title: "Nothing to export", description: "No rows match the current filters.", variant: "destructive" });
       return;
@@ -418,7 +466,7 @@ export default function FollowUp() {
           className="min-w-[220px]"
         />
       <FilterDialog activeCount={activeFilterCount} onClear={clearAllFilters}>
-        {dateChipsApply && (
+        {dateChipsApply && activeTab !== "proforma" && (
           <FilterSection title="Follow-up date">
             <div className="flex flex-wrap gap-2">
               <button
@@ -449,7 +497,7 @@ export default function FollowUp() {
           </FilterSection>
         )}
 
-        {dateChipsApply && (
+        {dateChipsApply && activeTab !== "proforma" && (
           <FilterSection title="Last call">
             <button
               type="button"
@@ -499,10 +547,11 @@ export default function FollowUp() {
           onFollowUp: handleFollowUpClick,
           onEditHistory: handleEditHistoryAttachmentClick,
         }}
-        rowKey={(r, tab) => (tab === "pending" ? r.ticketId : r.id ?? r.ticket_id + "-" + r.created_at)}
+        rowKey={(r, tab) => (tab === "pending" || tab === "proforma" ? r.ticketId : r.id ?? r.ticket_id + "-" + r.created_at)}
         cardTitle={(r) => r.ticketId}
         emptyTitle={{
           pending: "No pending follow-ups found.",
+          proforma: "No proforma invoices waiting for an order.",
           history: "No follow-up history found.",
         }}
         ariaLabel="Follow-ups"
@@ -516,7 +565,10 @@ export default function FollowUp() {
           updatedByName={updatedByName}
           onClose={() => setFollowUpTicket(null)}
           onSaved={fetchData}
-          onCancelled={(ticketId) => setPendingData((prev) => prev.filter((t) => t.ticketId !== ticketId))}
+          onCancelled={(ticketId) => {
+            setPendingData((prev) => prev.filter((t) => t.ticketId !== ticketId));
+            setProformaData((prev) => prev.filter((t) => t.ticketId !== ticketId));
+          }}
         />
       )}
 

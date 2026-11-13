@@ -31,7 +31,6 @@ const ALL_STAGE_NAMES = [
   "Invoice",
   "Machine-Handover",
   "Calibration",
-  "Calibration Certificate",
 ];
 
 const WEEKDAYS = [
