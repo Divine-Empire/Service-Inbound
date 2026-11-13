@@ -198,7 +198,6 @@ function MakeQuotation({ ticket = null }) {
           consigneeGSTIN: header.consignee_gstin || "",
           consigneeStateCode: header.consignee_state_code || "",
           msmeNumber: header.msme_number || "",
-          validity: header.validity || "",
           paymentTerms: header.payment_terms || "",
           delivery: header.delivery || "",
           freight: header.freight || "",
@@ -209,7 +208,7 @@ function MakeQuotation({ ticket = null }) {
           bankName: header.bank_name || "",
           bankAddress: header.bank_address || "",
           ifscCode: header.ifsc_code || "",
-          email: header.email || "",
+          email: "service@thedivineempire.com",
           website: header.website || "",
           pan: header.pan || "",
           specialOffers: header.special_offers || "",
@@ -336,7 +335,7 @@ function MakeQuotation({ ticket = null }) {
           bankName: loadedData.bankName || "",
           bankAddress: loadedData.bankAddress || "",
           ifscCode: loadedData.ifscCode || "",
-          email: loadedData.email || "",
+          email: "service@thedivineempire.com",
           website: loadedData.website || "",
           pan: loadedData.pan || "",
           consignorState: loadedData.consignorState || "",
@@ -629,7 +628,6 @@ function MakeQuotation({ ticket = null }) {
         consignee_gstin: quotationData.consigneeGSTIN,
         consignee_state_code: quotationData.consigneeStateCode,
         msme_number: quotationData.msmeNumber,
-        validity: quotationData.validity,
         payment_terms: quotationData.paymentTerms,
         delivery: quotationData.delivery,
         freight: quotationData.freight,
@@ -744,10 +742,12 @@ function MakeQuotation({ ticket = null }) {
         cgstAmount: 0,
         sgstAmount: 0,
         total: 0,
-        validity:
-          "The above quoted prices are valid up to 10 days from date of offer.",
         paymentTerms:
           "100% advance payment in the mode of NEFT, RTGS & DD.Payment only accepted in company's account - DIVINE EMPIRE INDIA PVT LTD.",
+        GST_Taxes:
+          "All rates are exclusive of GST. Applicable taxes will be charged extra as per government norms",
+        Parts_Availability:
+          "Service timelines depend on the availability of required parts. If a part is unavailable, the company will inform the client with an updated timeline.",
         delivery: "Material is ready in our stock",
         freight: "Extra as per actual.",
         insurance: "Transit insurance for all shipment is at Buyer's risk.",

@@ -7,8 +7,9 @@ export const useQuotationData = (initialSpecialDiscount = 0) => {
     initialSpecialDiscount
   );
   const [hiddenFields, setHiddenFields] = useState({
-    validity: false,
     paymentTerms: false,
+    GST_Taxes: false,
+    Parts_Availability: false,
     delivery: false,
     freight: false,
     insurance: false,
@@ -64,26 +65,8 @@ export const useQuotationData = (initialSpecialDiscount = 0) => {
     total: 0,
     // Matches Lead-To-Order-Supabase-New's own use-quotation-data.jsx defaults,
     // so this "unconditional" section behaves identically out of the box.
-    validity:
-      "The above quoted prices are valid up to 10 days from date of offer.",
-
     paymentTerms:
       "100% advance payment in the mode of NEFT, RTGS & DD.Payment only accepted in company's account - DIVINE EMPIRE INDIA PVT LTD.",
-
-    scopOfWork:
-      "Includes repair/installation/service as specified in quotation. Any additional work will be chargeable separately.",
-
-    visitTravel:
-      "TA/DA will be applicable as specified in the quotation.Any stay or accommodation expenses, if required, will be charged separately as per actuals.",
-
-    siteReadness:
-      "Kindly ensure the site is accessible, power is available, and all required areas are ready before the arrival of our service team.",
-
-    ObservationAndFixing:
-      "Additional charges may apply for any consumables, spares, or parts replaced during the service.",
-
-    Safety_Compliance:
-      "Client must ensure adherence to all safety guidelines at the site. Our team may decline to work in unsafe environments",
 
     GST_Taxes:
       "All rates are exclusive of GST. Applicable taxes will be charged extra as per government norms",
@@ -91,14 +74,11 @@ export const useQuotationData = (initialSpecialDiscount = 0) => {
     Parts_Availability:
       "Service timelines depend on the availability of required parts. If a part is unavailable, the company will inform the client with an updated timeline.",
 
-    Delays_Rescheduling:
-      "Service visits may be rescheduled due to unavoidable circumstances (weather, travel issues, emergencies).Clients must inform at least 24 hours in advance for rescheduling; otherwise, visit charges may still apply.",
-
     accountNo: "",
     bankName: "",
     bankAddress: "",
     ifscCode: "",
-    email: "",
+    email: "service@thedivineempire.com",
     website: "",
     pan: "",
     notes: [""],

@@ -17,6 +17,7 @@ import FilterDialog, { FilterSection } from "../../components/shared/FilterDialo
 import { FOLLOW_UP_COLUMNS, toCsvTable } from "./columns";
 import FollowUpFormModal from "./FollowUpFormModal";
 import EditHistoryModal from "./EditHistoryModal";
+import { machineText } from "../../lib/machines";
 import { enquiryTypeText } from "../../lib/enquiryType";
 
 // Order Received form dropdown categories.
@@ -139,7 +140,7 @@ export default function FollowUp() {
           phoneNumber: t.phone_number || "",
           siteAddress: t.site_address || "",
           gstNo: t.gst_no || "",
-          machineName: t.machine_name || "",
+          machineName: machineText(t.machine_name),
           mentionIssue: t.mention_issue || "",
           engineerAssign: t.engineer_assign || "",
           orderBlocked: machineReceivedByTicket.get(t.uuid) === "quotation_shared",

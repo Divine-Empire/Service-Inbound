@@ -10,6 +10,7 @@ import { useClientList } from "../../hooks/useClientList";
 import useAuth from "../../hooks/useAuth";
 import { COLUMNS, COLUMNS_NON_ADMIN } from "./columns";
 import QuotationFormModal from "./QuotationFormModal";
+import { machineText } from "../../lib/machines";
 import { enquiryTypeText } from "../../lib/enquiryType";
 
 export default function Quotation() {
@@ -97,7 +98,7 @@ export default function Quotation() {
           phoneNumber: t.phone_number || "",
           siteAddress: t.site_address || "",
           gstNo: t.gst_no || "",
-          machineName: t.machine_name || "",
+          machineName: machineText(t.machine_name),
           mentionIssue: t.mention_issue || "",
           hasQuotation: !!q,
           quotationNo: q?.quotation_no || "",

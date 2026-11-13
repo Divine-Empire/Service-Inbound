@@ -8,6 +8,7 @@ import { useToast } from "../../hooks/use-toast";
 import useAuth from "../../hooks/useAuth";
 import { supabase } from "../../lib/supabase/client";
 import { computeStagePlanned } from "../../lib/supabase/stagePlanning";
+import { machineText } from "../../lib/machines";
 import { enquiryTypeText } from "../../lib/enquiryType";
 
 // CRM Verification (Service-Inbound) — the stage after Follow-Up "Order Received".
@@ -142,7 +143,7 @@ export default function CrmVerification() {
           clientName: t.client_name || "",
           companyName: t.company_name || "",
           phoneNumber: t.phone_number || "",
-          machineName: t.machine_name || "",
+          machineName: machineText(t.machine_name),
           timeStemp: t.created_at || "",
           enquiryType: enquiryTypeText(t.enquiry_type),
           enquiryReceiverName: t.enquiry_receiver_name || "",

@@ -144,7 +144,8 @@ const QuotationForm = ({
           handleInputChange("bankName", data.bank_name || "")
           handleInputChange("bankAddress", data.bank_address || "")
           handleInputChange("ifscCode", data.ifsc_code || "")
-          handleInputChange("email", data.email || "")
+          // Inbound quotations always use the service mailbox, not the shared LTO email.
+          handleInputChange("email", "service@thedivineempire.com")
           handleInputChange("website", data.website || "")
           handleInputChange("pan", data.pan || "")
         }

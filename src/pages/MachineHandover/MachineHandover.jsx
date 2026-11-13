@@ -9,6 +9,7 @@ import { useClientList } from "../../hooks/useClientList";
 import { Loader2Icon } from "lucide-react";
 import { supabase } from "../../lib/supabase/client";
 import { formatDate, formatDateTimeShort, formatDelayLabel, delayTone } from "../../lib/format";
+import { machineText } from "../../lib/machines";
 import { enquiryTypeText } from "../../lib/enquiryType";
 
 const linkCell = (url) =>
@@ -110,7 +111,7 @@ export default function MachineHandover() {
           clientName: t.client_name || "",
           phoneNumber: t.phone_number || "",
           companyName: t.company_name || "",
-          machineName: t.machine_name || "",
+          machineName: machineText(t.machine_name),
           enquiryType: enquiryTypeText(t.enquiry_type),
           enquiryReceiverName: t.enquiry_receiver_name || "",
           gstNo: t.gst_no || "",

@@ -6,16 +6,9 @@ const TermsAndConditions = ({ quotationData, handleInputChange, hiddenFields, to
       <h3 className="text-lg font-medium mb-4">Terms & Conditions</h3>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {Object.entries({
-          validity: "Validity",
           paymentTerms: "Payment Terms",
-          scopOfWork: "Scope of Work",
-          visitTravel: "Visit & Travel",
-          siteReadness: "Site Readiness",
-          ObservationAndFixing: "Observation & Fixing",
-          Safety_Compliance: "Safety Compliance",
           GST_Taxes: "GST & Taxes",
           Parts_Availability: "Parts Availability",
-          Delays_Rescheduling: "Delays & Rescheduling",
         }).map(([field, label]) => (
           <div key={field} className="space-y-2">
             <div className="flex justify-between items-center">

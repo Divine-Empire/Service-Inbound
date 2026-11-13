@@ -22,7 +22,5 @@ export const COLUMNS = [
   { key: "clientType", label: "Client Type", defaultVisible: false, text: (r) => r.clientType },
   { key: "siteAddress", label: "Site Address", defaultVisible: false, wrap: true, width: 200, text: (r) => r.siteAddress },
   { key: "machineName", label: "Machine Name", defaultVisible: false, wrap: true, width: 200, text: (r) => r.machineName },
-  { key: "category", label: "Category", defaultVisible: false, text: (r) => r.category },
   { key: "mentionIssue", label: "Mention Issue", defaultVisible: false, wrap: true, width: 250, text: (r) => r.mentionIssue },
-  { key: "serviceLocation", label: "Service Location", defaultVisible: false, text: (r) => r.serviceLocation },
 ];

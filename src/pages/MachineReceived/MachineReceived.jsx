@@ -19,6 +19,7 @@ import useAuth from "../../hooks/useAuth";
 import { supabase } from "../../lib/supabase/client";
 import { computeStagePlanned } from "../../lib/supabase/stagePlanning";
 import { formatDate } from "../../lib/format";
+import { machineText } from "../../lib/machines";
 import { enquiryTypeText } from "../../lib/enquiryType";
 
 // Pending: Action + ticket columns. History: same plus the Machine Received outcome.
@@ -40,11 +41,18 @@ const COLUMNS = [
   { key: "siteAddress", label: "Site Address", defaultVisible: false, wrap: true, width: 200, text: (r) => r.siteAddress },
   { key: "machineName", label: "Machine Name", defaultVisible: false, wrap: true, width: 160, text: (r) => r.machineName },
   { key: "mentionIssue", label: "Mention Issue", defaultVisible: false, wrap: true, width: 200, text: (r) => r.mentionIssue },
+  { key: "followUpCount", label: "Follow-Ups", defaultVisible: true, tabs: ["pending", "hold"], text: (r) => String(r.followUpCount || 0) },
+  { key: "lastFollowUpAt", label: "Last Follow-Up", defaultVisible: true, tabs: ["pending", "hold"], text: (r) => (r.followUpCount ? formatDate(r.lastFollowUpAt) : "N/A") },
+  { key: "nextFollowUpDate", label: "Next Follow-Up Date", defaultVisible: true, tabs: ["pending", "hold"], cell: (r) =>
+    r.nextFollowUpDate ? (
+      <StatusBadge tone={r.nextFollowUpDate < todayYmd() ? "danger" : "info"}>{formatDate(r.nextFollowUpDate)}</StatusBadge>
+    ) : "N/A" },
+  { key: "customerSaid", label: "What Customer Said", defaultVisible: true, tabs: ["pending", "hold"], wrap: true, width: 220, text: (r) => r.customerSaid || "N/A" },
   { key: "machineReceived", label: "Machine Received", defaultVisible: false, tabs: ["history", "hold"], cell: (r) => (
-    <StatusBadge tone={r.machineReceived === "yes" ? "success" : r.machineReceived === "quotation_shared" ? "warning" : "danger"}>{RECEIVED_LABEL[r.machineReceived] || "No"}</StatusBadge>
+    <StatusBadge tone={r.machineReceived === "yes" ? "success" : "warning"}>{RECEIVED_LABEL[r.machineReceived] || "N/A"}</StatusBadge>
   ) },
   { key: "warrantyCheck", label: "Warranty Check", defaultVisible: false, tabs: ["history", "hold"], cell: (r) => (
-    <StatusBadge tone={r.warrantyCheck === "yes" ? "success" : "danger"}>{r.warrantyCheck === "yes" ? "Yes" : "No"}</StatusBadge>
+    r.warrantyCheck ? <StatusBadge tone={r.warrantyCheck === "yes" ? "success" : "danger"}>{r.warrantyCheck === "yes" ? "Yes" : "No"}</StatusBadge> : "N/A"
   ) },
   { key: "srnNumbers", label: "SRN Numbers", defaultVisible: false, tabs: ["history", "hold"], wrap: true, width: 200, text: (r) => (r.srnNumbers || []).join(", ") || "N/A" },
   { key: "challanCopy", label: "Challan Copy", defaultVisible: false, tabs: ["history", "hold"], cell: (r) =>
@@ -56,7 +64,11 @@ const COLUMNS = [
   { key: "receivedAt", label: "Processed At", defaultVisible: false, tabs: ["history", "hold"], text: (r) => formatDate(r.receivedAt) },
 ];
 
-const RECEIVED_LABEL = { yes: "Yes", no: "No", quotation_shared: "Quotation Shared" };
+const RECEIVED_LABEL = { yes: "Yes", quotation_shared: "Quotation Shared" };
+const todayYmd = () => {
+  const d = new Date();
+  return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+};
 
 // Read-only (pre-filled) fields look flat and muted; editable fields keep a white background
 // with a stronger border, so the two are easy to tell apart.
@@ -64,7 +76,7 @@ const READONLY_INPUT = "bg-slate-100 text-slate-500 border-dashed border-slate-3
 const ACTIVE_FIELD = "bg-white border-slate-400 text-slate-900 shadow-sm";
 
 const MAX_SRN = 15;
-const EMPTY_FORM = { machineReceived: "", warrantyCheck: "", remarks: "", srn: [""] };
+const EMPTY_FORM = { machineReceived: "", warrantyCheck: "", remarks: "", srn: [""], nextFollowUpDate: "", customerSaid: "" };
 const CHALLAN_ACCEPT = ".pdf,.jpg,.jpeg,.png,.webp";
 const cleanSrn = (list) => list.map((v) => v.trim()).filter(Boolean);
 
@@ -73,6 +85,7 @@ export default function MachineReceived() {
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [formData, setFormData] = useState(EMPTY_FORM);
   const [challanFile, setChallanFile] = useState(null);
+  const [followUpLogs, setFollowUpLogs] = useState([]);
 
   const [pendingData, setPendingData] = useState([]);
   const [historyData, setHistoryData] = useState([]);
@@ -99,6 +112,12 @@ export default function MachineReceived() {
         .select("*");
       if (receivedError) throw receivedError;
 
+      const { data: latestData, error: latestError } = await supabase
+        .from("inbound_machine_follow_up_latest")
+        .select("*");
+      if (latestError) throw latestError;
+      const latestByTicket = new Map((latestData || []).map((f) => [f.ticket_uuid, f]));
+
       const receivedByTicket = new Map((receivedData || []).map((m) => [m.ticket_uuid, m]));
 
       const pending = [];
@@ -120,8 +139,12 @@ export default function MachineReceived() {
           phoneNumber: t.phone_number || "",
           siteAddress: t.site_address || "",
           gstNo: t.gst_no || "",
-          machineName: t.machine_name || "",
+          machineName: machineText(t.machine_name),
           mentionIssue: t.mention_issue || "",
+          followUpCount: Number(latestByTicket.get(t.uuid)?.follow_up_count) || 0,
+          lastFollowUpAt: latestByTicket.get(t.uuid)?.last_follow_up_at || "",
+          nextFollowUpDate: latestByTicket.get(t.uuid)?.next_follow_up_date || "",
+          customerSaid: latestByTicket.get(t.uuid)?.customer_said || "",
         };
 
         const m = receivedByTicket.get(t.uuid);
@@ -132,6 +155,7 @@ export default function MachineReceived() {
             warrantyCheck: m.warranty_check || "",
             remarks: m.remarks || "",
             srnNumbers: m.srn_numbers || [],
+            srnText: (m.srn_numbers || []).join(" "),
             challanCopyUrl: m.challan_copy_url || "",
             lastUpdatedBy: m.last_updated_by || "",
             receivedAt: m.created_at || "",
@@ -165,11 +189,20 @@ export default function MachineReceived() {
     // Quotation Shared rows re-open with their saved values; the user then picks the final outcome.
     setFormData(
       ticket.isHold
-        ? { machineReceived: "", warrantyCheck: ticket.warrantyCheck || "", remarks: ticket.remarks || "", srn: ticket.srnNumbers?.length ? [...ticket.srnNumbers] : [""] }
+        ? { ...EMPTY_FORM, warrantyCheck: ticket.warrantyCheck || "", remarks: ticket.remarks || "", srn: ticket.srnNumbers?.length ? [...ticket.srnNumbers] : [""] }
         : EMPTY_FORM
     );
     setChallanFile(null);
+    setFollowUpLogs([]);
     setShowModal(true);
+    if (ticket.followUpCount) {
+      supabase
+        .from("inbound_machine_follow_up")
+        .select("id, next_follow_up_date, customer_said, remarks, created_by, created_at")
+        .eq("ticket_uuid", ticket.ticketUuid)
+        .order("created_at", { ascending: false })
+        .then(({ data }) => setFollowUpLogs(data || []));
+    }
   };
 
   const uploadChallan = async (ticketId, file) => {
@@ -188,12 +221,21 @@ export default function MachineReceived() {
       return;
     }
 
-    if (!formData.warrantyCheck) {
+    const isYes = formData.machineReceived === "yes";
+    const isFollowUp = formData.machineReceived === "follow_up";
+
+    if (isYes && !formData.warrantyCheck) {
       toast({ title: "Validation Error", description: "Please select Warranty Check option.", variant: "destructive" });
       return;
     }
-
-    const isYes = formData.machineReceived === "yes";
+    if (isFollowUp && !formData.nextFollowUpDate) {
+      toast({ title: "Validation Error", description: "Please select the Next Follow-Up Date.", variant: "destructive" });
+      return;
+    }
+    if (isFollowUp && !formData.customerSaid.trim()) {
+      toast({ title: "Validation Error", description: "Please enter what the customer said.", variant: "destructive" });
+      return;
+    }
     if (isYes && !challanFile && !(selectedTicket.isHold && selectedTicket.challanCopyUrl)) {
       toast({ title: "Validation Error", description: "Please attach the Challan Copy.", variant: "destructive" });
       return;
@@ -205,6 +247,23 @@ export default function MachineReceived() {
 
     setIsSubmitting(true);
     try {
+      if (isFollowUp) {
+        // Machine not received yet: append a follow-up log; the ticket stays where it is (Pending / Quotation Shared).
+        const { error: followUpError } = await supabase.from("inbound_machine_follow_up").insert({
+          ticket_uuid: selectedTicket.ticketUuid,
+          ticket_id: selectedTicket.ticketId,
+          next_follow_up_date: formData.nextFollowUpDate,
+          customer_said: formData.customerSaid.trim(),
+          remarks: formData.remarks.trim() || null,
+          created_by: userName || localStorage.getItem("currentUsername") || null,
+        });
+        if (followUpError) throw followUpError;
+        toast({ title: "Success", description: "Follow-up saved" });
+        setShowModal(false);
+        fetchData();
+        return;
+      }
+
       const challanUrl = isYes && challanFile ? await uploadChallan(selectedTicket.ticketId, challanFile) : null;
       const srnList = isYes ? cleanSrn(formData.srn) : [];
       const updatedBy = userName || localStorage.getItem("currentUsername") || null;
@@ -217,7 +276,7 @@ export default function MachineReceived() {
           .from("inbound_material_received")
           .update({
             machine_received: release ? "yes" : "quotation_shared",
-            warranty_check: formData.warrantyCheck,
+            warranty_check: isYes ? formData.warrantyCheck : null,
             remarks: formData.remarks.trim() || null,
             srn_numbers: srnList,
             ...(challanUrl ? { challan_copy_url: challanUrl } : {}),
@@ -245,7 +304,7 @@ export default function MachineReceived() {
         ticket_id: selectedTicket.ticketId,
         ticket_uuid: selectedTicket.ticketUuid,
         machine_received: formData.machineReceived,
-        warranty_check: formData.warrantyCheck,
+        warranty_check: isYes ? formData.warrantyCheck : null,
         quotation_planned: quotationPlanned,
         remarks: formData.remarks.trim() || null,
         srn_numbers: srnList,
@@ -272,19 +331,19 @@ export default function MachineReceived() {
     loading: fetchLoading,
     error: loadError,
     onRetry: fetchData,
-    searchKeys: ["ticketId", "clientName", "companyName", "phoneNumber"],
+    searchKeys: ["ticketId", "clientName", "companyName", "phoneNumber", "srnText"],
     filters: [
       { key: "enquiryType", label: "Enquiry Type", allLabel: "All Enquiry Types", get: (r) => r.enquiryType },
       { key: "clientType", label: "Client Type", allLabel: "All Client Types", get: (r) => r.clientType },
-      { key: "received", label: "Machine Received", allLabel: "All", get: (r) => RECEIVED_LABEL[r.machineReceived] || "No", tabs: ["history", "hold"] },
-      { key: "warranty", label: "Warranty Check", allLabel: "All", get: (r) => (r.warrantyCheck === "yes" ? "Yes" : "No"), tabs: ["history", "hold"] },
+      { key: "received", label: "Machine Received", allLabel: "All", get: (r) => RECEIVED_LABEL[r.machineReceived] || "N/A", tabs: ["history", "hold"] },
+      { key: "warranty", label: "Warranty Check", allLabel: "All", get: (r) => (r.warrantyCheck === "yes" ? "Yes" : r.warrantyCheck === "no" ? "No" : "N/A"), tabs: ["history", "hold"] },
     ],
     columns: COLUMNS,
   });
 
   return (
     <div className="space-y-3">
-      <ListToolbar list={list} searchPlaceholder="Search by ticket ID, client, company or phone..." filtersInDialog />
+      <ListToolbar list={list} searchPlaceholder="Search by ticket ID, client, company, phone or SRN..." filtersInDialog />
       <ListTable
         list={list}
         ctx={{ onProcess: handleProcessClick }}
@@ -339,11 +398,16 @@ export default function MachineReceived() {
                       </SelectTrigger>
                       <SelectContent className="bg-white border border-slate-200 shadow-md">
                         <SelectItem value="yes">Yes</SelectItem>
-                        <SelectItem value="no">No</SelectItem>
+                        <SelectItem value="follow_up">Follow-Up</SelectItem>
                         <SelectItem value="quotation_shared">Quotation Shared</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
+                </div>
+
+                {formData.machineReceived === "yes" && (
+                <>
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                   <div className="space-y-1">
                     <Label htmlFor="mr-warrantyCheck" className="font-medium text-muted-foreground">Warranty Check *</Label>
                     <Select
@@ -361,9 +425,6 @@ export default function MachineReceived() {
                     </Select>
                   </div>
                 </div>
-
-                {formData.machineReceived === "yes" && (
-                <>
                 <div className="space-y-1">
                   <Label htmlFor="mr-challan" className="font-medium text-muted-foreground">Challan Copy *</Label>
                   <Input
@@ -423,6 +484,37 @@ export default function MachineReceived() {
                 </>
                 )}
 
+                {formData.machineReceived === "follow_up" && (
+                <>
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                  <div className="space-y-1">
+                    <Label htmlFor="mr-nextFollowUp" className="font-medium text-muted-foreground">Next Follow-Up Date *</Label>
+                    <Input
+                      id="mr-nextFollowUp"
+                      type="date"
+                      min={todayYmd()}
+                      className={ACTIVE_FIELD}
+                      value={formData.nextFollowUpDate}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, nextFollowUpDate: e.target.value }))}
+                      disabled={isSubmitting}
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="mr-customerSaid" className="font-medium text-muted-foreground">What did customer say *</Label>
+                  <Textarea
+                    id="mr-customerSaid"
+                    placeholder="Enter what the customer said"
+                    rows={2}
+                    className={ACTIVE_FIELD}
+                    value={formData.customerSaid}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, customerSaid: e.target.value }))}
+                    disabled={isSubmitting}
+                  />
+                </div>
+                </>
+                )}
+
                 <div className="space-y-1">
                   <Label htmlFor="mr-remarks" className="font-medium text-muted-foreground">Remarks</Label>
                   <Textarea
@@ -436,6 +528,24 @@ export default function MachineReceived() {
                   />
                 </div>
               </div>
+
+              {followUpLogs.length > 0 && (
+                <div className="space-y-2 border-t pt-3">
+                  <Label className="font-medium text-muted-foreground">Previous follow-ups ({followUpLogs.length})</Label>
+                  <ul className="space-y-2">
+                    {followUpLogs.map((f) => (
+                      <li key={f.id} className="rounded-md border border-slate-200 bg-slate-50 p-2 text-xs">
+                        <div className="flex justify-between gap-2 font-medium text-slate-700">
+                          <span>{formatDate(f.created_at)}{f.created_by ? " - " + f.created_by : ""}</span>
+                          <span>Next: {formatDate(f.next_follow_up_date)}</span>
+                        </div>
+                        <p className="mt-1 text-slate-600">{f.customer_said}</p>
+                        {f.remarks && <p className="mt-1 text-slate-500">Remarks: {f.remarks}</p>}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
 
               </div>
 

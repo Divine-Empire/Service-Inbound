@@ -527,16 +527,9 @@ const colStyles = {
 // Service Terms & Conditions rows (label, quotationData key / hiddenFields key, default text).
 // Same keys and defaults the old HTML generator used.
 const TERMS_ROWS = [
-  ["Validity", "validity", "The quoted service rates are valid for 15 days from the date of this offer."],
-  ["Payment Terms", "paymentTerms", "A 100% advance payment is required through NEFT, RTGS, or Demand Draft (DD).All payments must be made only to the company account: DIVINE EMPIRE INDIA PVT. LTD."],
-  ["Scope of Work", "scopOfWork", "Includes repair/installation/service as specified in quotation. Any additional work will be chargeable separately."],
-  ["Visit & Travel", "visitTravel", "TA/DA will be applicable as specified in the quotation.Any stay or accommodation expenses, if required, will be charged separately as per actuals."],
-  ["Site Readiness", "siteReadness", "Kindly ensure the site is accessible, power is available, and all required areas are ready before the arrival of our service team."],
-  ["Observation & Fixings", "ObservationAndFixing", "Additional charges may apply for any consumables, spares, or parts replaced during the service."],
-  ["Safety Compliance", "Safety_Compliance", "Client must ensure adherence to all safety guidelines at the site. Our team may decline to work in unsafe environments"],
-  ["GST Taxes", "GST_Taxes", "All rates are exclusive of GST. Applicable taxes will be charged extra as per government norms"],
+  ["Payment Terms", "paymentTerms", "100% advance payment in the mode of NEFT, RTGS & DD.Payment only accepted in company's account - DIVINE EMPIRE INDIA PVT LTD."],
+  ["GST & Taxes", "GST_Taxes", "All rates are exclusive of GST. Applicable taxes will be charged extra as per government norms"],
   ["Parts Availability", "Parts_Availability", "Service timelines depend on the availability of required parts. If a part is unavailable, the company will inform the client with an updated timeline."],
-  ["Delays Rescheduling", "Delays_Rescheduling", "Service visits may be rescheduled due to unavoidable circumstances (weather, travel issues, emergencies).Clients must inform at least 24 hours in advance for rescheduling; otherwise, visit charges may still apply."],
 ];
 
 // React PDF Document Component (real, selectable text — replaces the old

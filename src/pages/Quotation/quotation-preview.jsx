@@ -244,28 +244,16 @@ const QuotationPreview = ({
               <table className="w-full">
                 <tbody>
                   <tr>
-                    <td className="py-1 font-medium">Validity</td>
-                    <td className="py-1">{quotationData.validity}</td>
-                  </tr>
-                  <tr>
                     <td className="py-1 font-medium">Payment Terms</td>
                     <td className="py-1">{quotationData.paymentTerms}</td>
                   </tr>
                   <tr>
-                    <td className="py-1 font-medium">Delivery</td>
-                    <td className="py-1">{quotationData.delivery}</td>
+                    <td className="py-1 font-medium">GST & Taxes</td>
+                    <td className="py-1">{quotationData.GST_Taxes}</td>
                   </tr>
                   <tr>
-                    <td className="py-1 font-medium">Freight</td>
-                    <td className="py-1">{quotationData.freight}</td>
-                  </tr>
-                  <tr>
-                    <td className="py-1 font-medium">Insurance</td>
-                    <td className="py-1">{quotationData.insurance}</td>
-                  </tr>
-                  <tr>
-                    <td className="py-1 font-medium">Taxes</td>
-                    <td className="py-1">{quotationData.taxes}</td>
+                    <td className="py-1 font-medium">Parts Availability</td>
+                    <td className="py-1">{quotationData.Parts_Availability}</td>
                   </tr>
                 </tbody>
               </table>

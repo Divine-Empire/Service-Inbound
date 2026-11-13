@@ -19,6 +19,7 @@ import { computeStagePlanned } from "../../lib/supabase/stagePlanning";
 import { fetchItemNameSample, searchItemNames } from "../../lib/supabase/items";
 import { MultiSelect } from "../../components/ui/multi-select";
 import { enquiryTypeList } from "../../lib/enquiryType";
+import { machineList } from "../../lib/machines";
 
 const EMPTY_FORM = {
   clientType: "New",
@@ -31,13 +32,10 @@ const EMPTY_FORM = {
   siteAddress: "",
   gstNo: "",
   gstAddress: "",
-  machineName: "",
   enquiryType: [],
   mentionIssue: "",
   remarks: "",
 };
-
-const splitList = (v) => (v ? v.split(",").map((s) => s.trim()).filter(Boolean) : []);
 
 // New / edit enquiry form. `ticket` = the row being edited, or null for a new enquiry. Render it
 // only while open; onClose closes it, onSaved runs after a successful save (page reloads).
@@ -64,14 +62,13 @@ export default function EnquiryFormModal({ ticket, masterData, companyDetails, o
         siteAddress: ticket.siteAddress || "",
         gstNo: ticket.gstNo || "",
         gstAddress: ticket.gstAddress || "",
-        machineName: ticket.machineName || "",
         enquiryType: enquiryTypeList(ticket.enquiryTypes ?? ticket.enquiryType),
         mentionIssue: ticket.mentionIssue || "",
         remarks: ticket.remarks || "",
         }
       : EMPTY_FORM
   );
-  const [newFormSelectedMachines, setNewFormSelectedMachines] = useState(() => splitList(ticket?.machineName));
+  const [newFormSelectedMachines, setNewFormSelectedMachines] = useState(() => machineList(ticket?.machines));
   const [showMachineDropdown, setShowMachineDropdown] = useState(false);
   const [machineSearchQuery, setMachineSearchQuery] = useState("");
   // Machine Name options come from the item catalog (lto_items): a spread sample first, then a
@@ -186,6 +183,11 @@ export default function EnquiryFormModal({ ticket, masterData, companyDetails, o
       toast({ title: "Validation Error", description: "Machine Name is required", variant: "destructive" });
       return;
     }
+    const badQty = newFormSelectedMachines.find((m) => !Number.isInteger(Number(m.qty)) || Number(m.qty) < 1);
+    if (badQty) {
+      toast({ title: "Validation Error", description: "Enter a quantity (1 or more) for " + badQty.name, variant: "destructive" });
+      return;
+    }
     if (!newEnquiryData.mentionIssue || !newEnquiryData.mentionIssue.trim()) {
       toast({ title: "Validation Error", description: "Mention Issue is required", variant: "destructive" });
       return;
@@ -206,7 +208,7 @@ export default function EnquiryFormModal({ ticket, masterData, companyDetails, o
           site_address: newEnquiryData.siteAddress || "",
           gst_no: newEnquiryData.gstNo || "",
           gst_address: newEnquiryData.gstAddress || "",
-          machine_name: newFormSelectedMachines.join(", "),
+          machine_name: newFormSelectedMachines.map((m) => ({ name: m.name, qty: Number(m.qty) })),
           enquiry_type: newEnquiryData.enquiryType,
           mention_issue: newEnquiryData.mentionIssue || "",
           remarks: newEnquiryData.remarks || "",
@@ -247,7 +249,7 @@ export default function EnquiryFormModal({ ticket, masterData, companyDetails, o
           site_address: newEnquiryData.siteAddress || "",
           gst_no: newEnquiryData.gstNo || "",
           gst_address: newEnquiryData.gstAddress || "",
-          machine_name: newFormSelectedMachines.join(", "),
+          machine_name: newFormSelectedMachines.map((m) => ({ name: m.name, qty: Number(m.qty) })),
           enquiry_type: newEnquiryData.enquiryType,
           mention_issue: newEnquiryData.mentionIssue || "",
           remarks: newEnquiryData.remarks || "",
@@ -546,10 +548,10 @@ export default function EnquiryFormModal({ ticket, masterData, companyDetails, o
                           <button
                             key={option}
                             type="button"
-                            disabled={newFormSelectedMachines.includes(option)}
+                            disabled={newFormSelectedMachines.some((m) => m.name === option)}
                             onClick={() => {
-                              if (!newFormSelectedMachines.includes(option)) {
-                                setNewFormSelectedMachines(prev => [...prev, option]);
+                              if (!newFormSelectedMachines.some((m) => m.name === option)) {
+                                setNewFormSelectedMachines(prev => [...prev, { name: option, qty: 1 }]);
                               }
                               setMachineSearchQuery("");
                               setShowMachineDropdown(false);
@@ -569,19 +571,33 @@ export default function EnquiryFormModal({ ticket, masterData, companyDetails, o
                   )}
                 </div>
                 {newFormSelectedMachines.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mt-2">
+                  <div className="mt-2 space-y-2">
                     {newFormSelectedMachines.map((machine) => (
                       <div
-                        key={machine}
-                        className="bg-brand-100 text-brand-800 text-xs px-2 py-1 rounded flex items-center"
+                        key={machine.name}
+                        className="flex items-center gap-3 rounded-md border border-gray-200 bg-brand-50 px-3 py-2"
                       >
-                        {machine}
+                        <span className="flex-1 text-sm text-brand-800 break-words">{machine.name}</span>
+                        <Label htmlFor={`tk-qty-${machine.name}`} className="text-xs text-gray-600">Qty *</Label>
+                        <Input
+                          id={`tk-qty-${machine.name}`}
+                          type="number"
+                          min={1}
+                          step={1}
+                          value={machine.qty}
+                          onChange={(e) => {
+                            const qty = e.target.value;
+                            setNewFormSelectedMachines(prev => prev.map(m => m.name === machine.name ? { ...m, qty } : m));
+                          }}
+                          className="h-8 w-20 text-sm"
+                        />
                         <button
                           type="button"
                           onClick={() => {
-                            setNewFormSelectedMachines(prev => prev.filter(m => m !== machine));
+                            setNewFormSelectedMachines(prev => prev.filter(m => m.name !== machine.name));
                           }}
-                          className="ml-1 text-brand-600 hover:text-brand-800 font-bold"
+                          className="text-brand-600 hover:text-brand-800 font-bold"
+                          aria-label={`Remove ${machine.name}`}
                         >
                           ×
                         </button>

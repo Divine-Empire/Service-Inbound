@@ -17,6 +17,7 @@ import { formatDate } from "../../lib/format";
 import { COLUMNS } from "./columns";
 import { useEnquiryMasters } from "./useEnquiryMasters";
 import EnquiryFormModal from "./EnquiryFormModal";
+import { machineText, machineList } from "../../lib/machines";
 import { enquiryTypeText, enquiryTypeList } from "../../lib/enquiryType";
 
 // Once a ticket reaches one of these stages, editing it here no longer
@@ -64,21 +65,12 @@ export default function Tickets() {
         siteAddress: row.site_address || "",
         gstNo: row.gst_no || "",
         gstAddress: row.gst_address || "",
-        machineName: row.machine_name || "",
+        machineName: machineText(row.machine_name),
+        machines: machineList(row.machine_name),
         enquiryType: enquiryTypeText(row.enquiry_type),
         enquiryTypes: enquiryTypeList(row.enquiry_type),
-        category: row.category || "",
         mentionIssue: row.mention_issue || "",
-        serviceLocation: row.service_location || "",
-        challanCopy: row.challan_copy || "",
-        machinePhoto: row.machine_photo || "",
-        videoCall: row.video_call || "",
-        subCategory: row.sub_category || "",
-        videoCallTime: row.video_call_time || "",
-        engineerAssign: row.engineer_assign || "",
-        otp: row.otp || "",
         currentStage: row.current_stage || "",
-        enquiryItemList: row.enquiry_item_list || "",
         remarks: row.remarks || "",
       }));
 
@@ -164,7 +156,6 @@ export default function Tickets() {
     error: loadError,
     onRetry: fetchData,
     searchKeys: ["ticketId", "clientName", "companyName", "phoneNumber"],
-    filters: [{ key: "category", label: "Category", allLabel: "All Categories", get: (r) => r.category }],
     columns: COLUMNS,
   });
   const hasDateRange = !!(dateRange.start || dateRange.end);
