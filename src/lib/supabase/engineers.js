@@ -12,3 +12,14 @@ export async function fetchEngineerNames() {
   if (error) throw error;
   return [...new Set((data || []).map((r) => r.engineer_name))].filter(Boolean);
 }
+
+// Engineer name + WhatsApp number pairs from Master > Engineer List, for dropdowns that need both.
+export async function fetchEngineerContacts() {
+  const { data, error } = await supabase
+    .from("sss_engineer_contacts")
+    .select("engineer_name, phone_number")
+    .order("engineer_name", { ascending: true });
+
+  if (error) throw error;
+  return (data || []).filter((r) => r.engineer_name);
+}
