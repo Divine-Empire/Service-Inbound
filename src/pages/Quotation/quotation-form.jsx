@@ -165,7 +165,7 @@ const QuotationForm = ({
       try {
         const { data, error } = await supabase
           .from("inbound_tickets")
-          .select("company_name, site_address, client_name, phone_number, gst_no, created_at")
+          .select("company_name, site_address, gst_address, client_name, phone_number, gst_no, created_at")
           .order("created_at", { ascending: false })
           .limit(500)
 
@@ -179,6 +179,7 @@ const QuotationForm = ({
           companyOptionsData.push(name)
           companyDetailsMap[name] = {
             address: row.site_address || "",
+            billingAddress: row.gst_address || "",
             state: "",
             contactName: row.client_name || "",
             contactNo: row.phone_number || "",
@@ -204,7 +205,7 @@ const QuotationForm = ({
       try {
         const { data, error } = await supabase
           .from("inbound_tickets")
-          .select("ticket_id, uuid, company_name, site_address, gst_no, client_name, phone_number, created_at")
+          .select("ticket_id, uuid, company_name, site_address, gst_address, gst_no, client_name, phone_number, created_at")
           .order("created_at", { ascending: false })
           .limit(300)
 
@@ -221,6 +222,7 @@ const QuotationForm = ({
             ticketId: row.ticket_id,
             companyName: row.company_name || "",
             address: row.site_address || "",
+            billingAddress: row.gst_address || "",
             contactName: row.client_name || "",
             contactNo: row.phone_number || "",
             gstin: row.gst_no || "",
@@ -319,7 +321,8 @@ const QuotationForm = ({
 
     // Fill consignee details from the ticket
     handleInputChange("consigneeName", companyName)
-    handleInputChange("consigneeAddress", leadData.address)
+    handleInputChange("consigneeAddress", leadData.address) // Ship Address <- inbound_tickets.site_address
+    handleInputChange("shipTo", leadData.billingAddress) // Billing Address <- inbound_tickets.gst_address
     handleInputChange("consigneeContactName", leadData.contactName)
     handleInputChange("consigneeContactNo", leadData.contactNo)
     handleInputChange("consigneeGSTIN", leadData.gstin)

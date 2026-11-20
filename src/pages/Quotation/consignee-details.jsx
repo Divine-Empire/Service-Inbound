@@ -21,6 +21,7 @@ const ConsigneeDetails = ({
       const companyDetails = dropdownData.companies[selectedCompany]
 
       handleInputChange("consigneeAddress", companyDetails.address)
+      handleInputChange("shipTo", companyDetails.billingAddress || "")
       handleInputChange("consigneeState", companyDetails.state)
       handleInputChange("consigneeContactName", companyDetails.contactName)
       handleInputChange("consigneeContactNo", companyDetails.contactNo)
@@ -41,6 +42,7 @@ const ConsigneeDetails = ({
       }
     } else {
       handleInputChange("consigneeAddress", "")
+      handleInputChange("shipTo", "")
       handleInputChange("consigneeState", "")
       handleInputChange("consigneeContactName", "")
       handleInputChange("consigneeContactNo", "")
