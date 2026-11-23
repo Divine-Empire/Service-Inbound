@@ -491,6 +491,13 @@ function MakeQuotation({ ticket = null }) {
       return;
     }
 
+    // A new quotation must be tied to a ticket (Lead No.) — otherwise it never shows up in that
+    // ticket's Create Quotation dropdown. Revisions inherit their root's ticket, so they're exempt.
+    if (!(isRevising && selectedQuotation) && !quotationData.linkedTicketUuid) {
+      alert("Please select a Lead No. (ticket) for this quotation");
+      return;
+    }
+
     if (!quotationData.preparedBy) {
       alert("Please enter prepared by name");
       return;

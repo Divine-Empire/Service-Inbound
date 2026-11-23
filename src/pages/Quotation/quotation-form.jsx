@@ -53,7 +53,7 @@ const QuotationForm = ({
   const [isItemsLoading, setIsItemsLoading] = useState(false);
 
   // Lead number (TN-xxx ticket) states
-  const [showLeadNoDropdown, setShowLeadNoDropdown] = useState(false)
+  const [showLeadNoDropdown, setShowLeadNoDropdown] = useState(true)
   const [leadNoOptions, setLeadNoOptions] = useState(["Select Lead No."])
   const [leadNoData, setLeadNoData] = useState({})
 
